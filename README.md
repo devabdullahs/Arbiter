@@ -178,7 +178,7 @@ crediting the original author. Removing the attribution is not permitted.
 
 - **Author:** Abdullah
 - **GitHub:** [@devabdullahs](https://github.com/devabdullahs)
-- **Discord:** @monster20
+- **Discord:** [@monster20](https://discord.com/users/170115708871507970)
 - **Project repo:** https://github.com/devabdullahs/esports-admin-bot
 
 If you build on this bot, please retain the credit above (and a link back to the repository is
