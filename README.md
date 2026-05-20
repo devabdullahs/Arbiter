@@ -7,8 +7,9 @@ It runs match control panels, map vetoes, score reporting, warnings, pauses, evi
 referee assignment, dispute escalation, and per-server rules presets — and it works both inside a
 configured org server **and** as a user-installed companion app for referees working external events.
 
-> **License:** MIT. You are free to use, modify, and redistribute this project — **you must keep the
-> attribution to the author** (see [License & Attribution](#license--attribution)).
+> **License:** PolyForm Noncommercial 1.0.0 (source-available, **non-commercial**). You may use, modify,
+> and share this project for non-commercial purposes and **must keep attribution to the author** —
+> **selling or other commercial use is not permitted** (see [License & Attribution](#license--attribution)).
 
 ---
 
@@ -170,16 +171,21 @@ migrations, registered commands, and a live Discord app.
 
 ## License & Attribution
 
-This project is released under the [MIT License](LICENSE).
+This project is released under the [PolyForm Noncommercial License 1.0.0](LICENSE) — a
+**source-available, non-commercial** license.
 
-**In plain terms:** you may use, copy, modify, merge, publish, distribute, and even sell copies of this
-software, including in your own projects — **as long as you keep the copyright and attribution notice**
-crediting the original author. Removing the attribution is not permitted.
+**In plain terms:** you may use, copy, modify, and share this software for **non-commercial purposes**,
+including your own non-commercial projects — **as long as you keep the copyright/attribution notice**
+crediting the original author. **Selling copies or any commercial use is not permitted**, and removing
+the attribution is not allowed.
+
+> Note: because it forbids commercial use, this is *source-available*, not "open source" in the official
+> (OSI) sense — that label requires permitting commercial use.
 
 - **Author:** Abdullah
 - **GitHub:** [@devabdullahs](https://github.com/devabdullahs)
 - **Discord:** [@monster20](https://discord.com/users/170115708871507970)
 - **Project repo:** https://github.com/devabdullahs/esports-admin-bot
 
-If you build on this bot, please retain the credit above (and a link back to the repository is
-appreciated). See the [`LICENSE`](LICENSE) file for the full legal text.
+If you build on this bot, you must retain the credit above and the `Required Notice` line. See the
+[`LICENSE`](LICENSE) file for the full legal text. For commercial licensing, contact the author.

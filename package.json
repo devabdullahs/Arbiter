@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Discord.js esports referee and admin workflow bot.",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "author": "Abdullah (@devabdullahs)",
   "homepage": "https://github.com/devabdullahs/esports-admin-bot#readme",
   "repository": {
