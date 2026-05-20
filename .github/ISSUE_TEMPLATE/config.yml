@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & support (Discord)
+    url: https://discord.com/users/170115708871507970
+    about: Reach the maintainer (@monster20) on Discord for questions and help.
+  - name: Report a security vulnerability
+    url: https://github.com/devabdullahs/esports-admin-bot/security/advisories/new
+    about: Please report vulnerabilities privately — do not open a public issue.
