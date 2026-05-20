@@ -12,4 +12,4 @@
 - [ ] Added/updated tests where it makes sense
 - [ ] Updated the README/docs if commands or behavior changed
 - [ ] If the Prisma schema changed, a migration is included
-- [ ] I agree my contribution is provided under the project's PolyForm Noncommercial 1.0.0 license
+- [ ] I agree my contribution is provided under the project's Apache-2.0 license

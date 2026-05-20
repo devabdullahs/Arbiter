@@ -7,9 +7,10 @@ It runs match control panels, map vetoes, score reporting, warnings, pauses, evi
 referee assignment, dispute escalation, and per-server rules presets — and it works both inside a
 configured org server **and** as a user-installed companion app for referees working external events.
 
-> **License:** PolyForm Noncommercial 1.0.0 (source-available, **non-commercial**). You may use, modify,
-> and share this project for non-commercial purposes and **must keep attribution to the author** —
-> **selling or other commercial use is not permitted** (see [License & Attribution](#license--attribution)).
+> **License:** [Apache-2.0](LICENSE) — free to use, modify, and distribute, **including commercially**.
+> You must preserve the copyright and attribution notices (see [`NOTICE`](NOTICE)). If you or your org
+> runs this in production, please consider [sponsoring](#support--sponsoring) 💜
+> (see [License](#license)).
 
 ---
 
@@ -169,23 +170,28 @@ migrations, registered commands, and a live Discord app.
 
 ---
 
-## License & Attribution
+## Support & Sponsoring
 
-This project is released under the [PolyForm Noncommercial License 1.0.0](LICENSE) — a
-**source-available, non-commercial** license.
-
-**In plain terms:** you may use, copy, modify, and share this software for **non-commercial purposes**,
-including your own non-commercial projects — **as long as you keep the copyright/attribution notice**
-crediting the original author. **Selling copies or any commercial use is not permitted**, and removing
-the attribution is not allowed.
-
-> Note: because it forbids commercial use, this is *source-available*, not "open source" in the official
-> (OSI) sense — that label requires permitting commercial use.
+This bot is free and open source under Apache-2.0 — **including for commercial use**, so events,
+leagues, and organizations are welcome to run it. If it's useful to you (especially in production),
+please consider **[sponsoring the project on GitHub](https://github.com/sponsors/devabdullahs)** 💜.
+Sponsorship is what keeps it actively maintained and is hugely appreciated.
 
 - **Author:** Abdullah
 - **GitHub:** [@devabdullahs](https://github.com/devabdullahs)
 - **Discord:** [@monster20](https://discord.com/users/170115708871507970)
 - **Project repo:** https://github.com/devabdullahs/esports-admin-bot
 
-If you build on this bot, you must retain the credit above and the `Required Notice` line. See the
-[`LICENSE`](LICENSE) file for the full legal text. For commercial licensing, contact the author.
+## License
+
+Licensed under the **[Apache License 2.0](LICENSE)** — an OSI-approved open-source license.
+
+**In plain terms:** anyone may use, modify, and distribute this software, **including commercially**,
+free of charge. In return, you must:
+
+- include a copy of the license,
+- preserve the copyright, license, and attribution notices (see [`NOTICE`](NOTICE)), and
+- state in modified files that you changed them.
+
+It also includes an explicit patent grant and the standard "no warranty" disclaimer. Attribution to the
+original author must be kept. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) for the full details.

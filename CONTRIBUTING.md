@@ -3,10 +3,9 @@
 Thanks for your interest in improving the Esports Admin Bot! Bug reports, feature ideas, docs, and
 code contributions are all welcome.
 
-> **License note:** This project is licensed under the **PolyForm Noncommercial 1.0.0** license
-> (source-available, **non-commercial**). By contributing, you agree your contributions are provided
-> under the same license, that the project may not be sold or used commercially, and that attribution
-> to the original author is retained. See [LICENSE](LICENSE).
+> **License note:** This project is licensed under the **Apache License 2.0**. By contributing, you
+> agree that your contributions are provided under the same license (Apache-2.0), per its Section 5.
+> See [LICENSE](LICENSE).
 
 ## Getting started
 
