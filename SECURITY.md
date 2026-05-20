@@ -6,7 +6,7 @@ Please **do not** open a public issue for security vulnerabilities.
 
 Report privately via one of:
 
-- **GitHub:** open a [private security advisory](https://github.com/devabdullahs/esports-admin-bot/security/advisories/new)
+- **GitHub:** open a [private security advisory](https://github.com/devabdullahs/esports-referee-bot/security/advisories/new)
 - **Discord:** DM the maintainer **[@monster20](https://discord.com/users/170115708871507970)**
 
 Include a description, reproduction steps, and the potential impact. You'll get an acknowledgement as

@@ -1,18 +1,18 @@
 {
-  "name": "esports-admin-bot",
+  "name": "esports-referee-bot",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Discord.js esports referee and admin workflow bot.",
   "license": "Apache-2.0",
   "author": "Abdullah (@devabdullahs)",
-  "homepage": "https://github.com/devabdullahs/esports-admin-bot#readme",
+  "homepage": "https://github.com/devabdullahs/esports-referee-bot#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/devabdullahs/esports-admin-bot.git"
+    "url": "https://github.com/devabdullahs/esports-referee-bot.git"
   },
   "bugs": {
-    "url": "https://github.com/devabdullahs/esports-admin-bot/issues"
+    "url": "https://github.com/devabdullahs/esports-referee-bot/issues"
   },
   "keywords": [
     "discord",

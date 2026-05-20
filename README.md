@@ -180,7 +180,7 @@ Sponsorship is what keeps it actively maintained and is hugely appreciated.
 - **Author:** Abdullah
 - **GitHub:** [@devabdullahs](https://github.com/devabdullahs)
 - **Discord:** [@monster20](https://discord.com/users/170115708871507970)
-- **Project repo:** https://github.com/devabdullahs/esports-admin-bot
+- **Project repo:** https://github.com/devabdullahs/esports-referee-bot
 
 ## License
 
