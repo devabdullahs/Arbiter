@@ -38,7 +38,7 @@
     "check": "node --check src/index.js && node --check src/deploy-commands.js && node --test"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^7.8.0",
     "discord.js": "^14.25.1",
     "dotenv": "^16.4.7"
   },
