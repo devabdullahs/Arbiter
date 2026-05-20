@@ -1,0 +1,435 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrgMemberRole {
+  OWNER
+  ADMIN
+  REFEREE
+  PLAYER
+}
+
+enum MatchStatus {
+  PENDING
+  VETO
+  LIVE
+  DISPUTED
+  COMPLETE
+  CANCELLED
+}
+
+enum VetoKind {
+  BAN
+  PICK
+}
+
+model Organization {
+  id             String              @id @default(cuid())
+  discordGuildId String              @unique
+  name           String
+  settings       OrgSettings?
+  members        OrgMember[]
+  tournaments    Tournament[]
+  teams          Team[]
+  matches        Match[]
+  scoreReports   ScoreReport[]
+  rosterEntries  RosterSubmission[]
+  reminders      ScheduledReminder[]
+  rulebook       RulebookEntry[]
+  shifts         RefereeShift[]
+  auditLogs      AuditLog[]
+  rulesPresets   RulesPreset[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+model RulesPreset {
+  id             String       @id @default(cuid())
+  organizationId String
+  key            String
+  label          String
+  mapPool        Json
+  vetoMode       String       @default("final_map_ban")
+  notes          String?
+  createdById    String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+}
+
+model OrgSettings {
+  id                String       @id @default(cuid())
+  organizationId    String       @unique
+  adminRoleId       String?
+  refereeRoleId     String?
+  matchCategoryId   String?
+  matchLogChannelId String?
+  evidenceChannelId String?
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+model OrgMember {
+  id             String        @id @default(cuid())
+  organizationId String
+  userProfileId  String
+  role           OrgMemberRole @default(PLAYER)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userProfile    UserProfile   @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([organizationId, userProfileId])
+  @@index([userProfileId])
+}
+
+model UserProfile {
+  id             String          @id @default(cuid())
+  discordUserId  String          @unique
+  displayName    String?
+  linkedAccounts LinkedAccount[]
+  memberships    OrgMember[]
+  teamMembers    TeamMember[]
+  checkins       Checkin[]
+  pauseLogs      PauseLog[]
+  warningsIssued Warning[]       @relation("WarningIssuer")
+  evidence       Evidence[]
+  shifts         RefereeShift[]
+  auditLogs      AuditLog[]
+  standaloneLogs StandaloneLog[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+// Matchless logs captured by referees via the user-installed /log command, e.g. for
+// external tournaments where the bot is not present and no match record exists.
+model StandaloneLog {
+  id             String      @id @default(cuid())
+  userProfileId  String
+  kind           String
+  event          String?
+  teams          String?
+  subject        String?
+  summary        String?
+  details        String?
+  result         String?
+  attachmentUrl  String?
+  attachmentName String?
+  userProfile    UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now())
+
+  @@index([userProfileId])
+}
+
+model LinkedAccount {
+  id            String      @id @default(cuid())
+  userProfileId String
+  provider      String
+  handle        String
+  metadata      Json?
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([provider, handle])
+  @@index([userProfileId])
+}
+
+model Tournament {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  gameTitle      String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  matches        Match[]
+  teams          Team[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Team {
+  id             String             @id @default(cuid())
+  organizationId String
+  tournamentId   String?
+  name           String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tournament     Tournament?        @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  members        TeamMember[]
+  participants   MatchParticipant[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([organizationId])
+}
+
+model TeamMember {
+  id            String       @id @default(cuid())
+  teamId        String
+  userProfileId String?
+  displayName   String
+  team          Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userProfile   UserProfile? @relation(fields: [userProfileId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Match {
+  id                 String              @id @default(cuid())
+  publicCode         String              @unique
+  organizationId     String
+  tournamentId       String?
+  channelId          String?
+  controlMessageId   String?
+  createdById        String?
+  teamAName          String
+  teamBName          String
+  bestOf             Int
+  rulesPreset        String              @default("generic")
+  vetoMode           String              @default("final_map_ban")
+  mapPool            Json
+  status             MatchStatus         @default(PENDING)
+  teamAScore         Int                 @default(0)
+  teamBScore         Int                 @default(0)
+  allowPlayerReports Boolean             @default(false)
+  assignedRefereeId  String?
+  disputeReason      String?
+  teamARoleId        String?
+  teamBRoleId        String?
+  rosterLockedAt     DateTime?
+  rosterLockedById   String?
+  finalMap           String?
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tournament         Tournament?         @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  participants       MatchParticipant[]
+  vetoActions        VetoAction[]
+  checkins           Checkin[]
+  pauseLogs          PauseLog[]
+  warnings           Warning[]
+  evidence           Evidence[]
+  scoreReports       ScoreReport[]
+  rosterSubmissions  RosterSubmission[]
+  reminders          ScheduledReminder[]
+  room               MatchRoom?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model MatchParticipant {
+  id      String @id @default(cuid())
+  matchId String
+  teamId  String
+  slot    String
+  match   Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team    Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, slot])
+}
+
+model VetoAction {
+  id        String   @id @default(cuid())
+  matchId   String
+  kind      VetoKind
+  teamSlot  String
+  mapName   String
+  actorId   String?
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([matchId])
+}
+
+model RefereeShift {
+  id             String       @id @default(cuid())
+  organizationId String
+  userProfileId  String
+  onShift        Boolean      @default(false)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userProfile    UserProfile  @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, userProfileId])
+}
+
+model Checkin {
+  id             String      @id @default(cuid())
+  organizationId String
+  matchId        String
+  userProfileId  String
+  gameAccount    String
+  validation     Json?
+  match          Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userProfile    UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now())
+
+  @@index([organizationId])
+  @@index([userProfileId])
+}
+
+model PauseLog {
+  id              String       @id @default(cuid())
+  organizationId  String
+  matchId         String
+  pauseType       String       @default("team")
+  teamName        String?
+  durationMinutes Int
+  reason          String
+  actorId         String?
+  match           Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  actor           UserProfile? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt       DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model Warning {
+  id             String       @id @default(cuid())
+  organizationId String
+  matchId        String
+  player         String
+  rule           String
+  note           String?
+  actorId        String?
+  match          Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  actor          UserProfile? @relation("WarningIssuer", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model Evidence {
+  id             String       @id @default(cuid())
+  organizationId String
+  matchId        String
+  url            String
+  note           String?
+  status         String       @default("submitted")
+  reviewedById   String?
+  reviewedAt     DateTime?
+  reviewNote     String?
+  submittedById  String?
+  match          Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  submittedBy    UserProfile? @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model ScoreReport {
+  id             String       @id @default(cuid())
+  organizationId String
+  matchId        String
+  teamAScore     Int
+  teamBScore     Int
+  scoringType    String       @default("match")
+  comment        String?
+  attachments    Json?
+  status         String       @default("pending")
+  submittedById  String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  reviewNote     String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  match          Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([matchId])
+  @@index([status])
+}
+
+model RosterSubmission {
+  id             String       @id @default(cuid())
+  organizationId String
+  matchId        String
+  teamSlot       String
+  teamName       String
+  players        Json
+  status         String       @default("submitted")
+  note           String?
+  submittedById  String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  match          Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([matchId, teamSlot])
+  @@index([organizationId])
+  @@index([status])
+}
+
+model ScheduledReminder {
+  id             String       @id @default(cuid())
+  organizationId String
+  matchId        String?
+  kind           String
+  dueAt          DateTime
+  channelId      String?
+  userId         String?
+  payload        Json?
+  deliveredAt    DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  match          Match?       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([dueAt])
+  @@index([deliveredAt])
+}
+
+model RulebookEntry {
+  id             String       @id @default(cuid())
+  organizationId String
+  key            String
+  title          String
+  body           String
+  tags           String?
+  createdById    String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+}
+
+model MatchRoom {
+  id              String   @id @default(cuid())
+  matchId         String   @unique
+  textChannelId   String?
+  voiceChannelId  String?
+  categoryId      String?
+  playerMessageId String?
+  match           Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  actorId        String?
+  action         String
+  targetType     String?
+  targetId       String?
+  metadata       Json?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          UserProfile? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}

@@ -1,0 +1,48 @@
+{
+  "name": "esports-admin-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Discord.js esports referee and admin workflow bot.",
+  "license": "MIT",
+  "author": "Abdullah (@devabdullahs)",
+  "homepage": "https://github.com/devabdullahs/esports-admin-bot#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devabdullahs/esports-admin-bot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/devabdullahs/esports-admin-bot/issues"
+  },
+  "keywords": [
+    "discord",
+    "discord-bot",
+    "discord.js",
+    "esports",
+    "tournament",
+    "referee",
+    "valorant",
+    "overwatch",
+    "prisma"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "deploy:commands": "node src/deploy-commands.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "check": "node --check src/index.js && node --check src/deploy-commands.js && node --test"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "discord.js": "^14.25.1",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  }
+}
