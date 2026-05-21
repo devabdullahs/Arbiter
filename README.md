@@ -109,6 +109,8 @@ npm run dev          # watch mode (or: npm start)
 **Org / admin (guild only)**
 - `/org setup` — configure admin role, referee role, match category, match-log channel, and evidence
   channel. `auto_create:true` creates missing roles/channels.
+- `/org member | members` — save/list org admins and referees in the database so `/ref-my` can
+  authorize them from user-installed contexts where Discord roles are unavailable.
 - `/match-admin create` — create a match panel. Supports `best_of` 1–99, `veto_format`, `rules_preset`
   (built-in or custom, with autocomplete), optional `team_a_role`/`team_b_role` room access, and
   `player_scores` to let teams report scores.
@@ -129,7 +131,9 @@ npm run dev          # watch mode (or: npm start)
 - `/checkin` — record a check-in for a public match code.
 - `/evidence submit | review` — attach/review evidence for a match.
 - `/call-ref` — page the referee for a match.
-- `/ref-my dashboard | log | score` — referee tools for matches you're assigned to, off-server.
+- `/ref-my dashboard | log | score | score-review | pause | evidence | roster | rule | handoff` —
+  referee tools for matches you're assigned to or authorized for, including off-server/user-installed
+  workflows.
 - `/log note | score | evidence | warning | list` — standalone, matchless logging for external events.
 
 ---
@@ -164,11 +168,15 @@ Model boundaries:
 
 ```bash
 npm run check     # syntax check + Node test suite
+npx prisma validate
 ```
 
 Tests cover veto/match-view helpers, install-context policy, admin interaction gates, modal/file-upload
 support, and command registration. Full integration testing requires a running Postgres, applied
 migrations, registered commands, and a live Discord app.
+
+GitHub Actions runs `npm ci`, `npx prisma validate`, and `npm run check` on pushes to `main` and pull
+requests.
 
 ---
 

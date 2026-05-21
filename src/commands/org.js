@@ -1,4 +1,4 @@
-import { ChannelType, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { ChannelType, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import { isOrgAdmin, listOrgMembers, resolveOrganizationByGuild, setOrgMemberRole, setupOrganization } from '../services/org-service.js';
 import { guildOnly } from './install-contexts.js';
 
@@ -114,6 +114,10 @@ export const orgCommand = {
       return;
     }
 
+    // Defer immediately: auto-creating roles + a category + channels takes longer than
+    // Discord's 3-second interaction window, so we must acknowledge first.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     const autoCreate = interaction.options.getBoolean('auto_create') ?? false;
     const orgSetup = autoCreate ? await ensureOrgDefaults(interaction) : {};
 
@@ -145,26 +149,23 @@ export const orgCommand = {
         ].join('\n')
       : 'Using the channels/categories you selected.';
 
-    await interaction.reply({
+    await interaction.editReply({
       content: `Configured ${organization.name}. Match code namespace is now tied to this server.\n${createdText}`,
-      ephemeral: true,
     });
   },
 };
 
 async function ensureOrgDefaults(interaction) {
   if (!interaction.appPermissions?.has(PermissionFlagsBits.ManageChannels)) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'I need the Manage Channels permission to auto-create org channels.',
-      ephemeral: true,
     });
     return null;
   }
 
   if (!interaction.appPermissions?.has(PermissionFlagsBits.ManageRoles)) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'I need the Manage Roles permission to auto-create org roles.',
-      ephemeral: true,
     });
     return null;
   }
