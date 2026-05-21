@@ -138,6 +138,22 @@ npm run dev          # watch mode (or: npm start)
 
 ---
 
+## Screenshots
+
+| Match control panel | Map veto |
+|---|---|
+| ![Match control panel](docs/images/match-panel.png) | ![Map veto](docs/images/veto.png) |
+
+| Score reporting | Match log |
+|---|---|
+| ![Score report modal](docs/images/score-report.png) | ![Match log embed](docs/images/match-log.png) |
+
+| Evidence vault | Standalone logging |
+|---|---|
+| ![Evidence vault embed](docs/images/evidence-vault.png) | ![Standalone log receipt](docs/images/standalone-log.png) |
+
+---
+
 ## Architecture
 
 ```text
