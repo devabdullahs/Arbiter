@@ -160,6 +160,21 @@ export const owcsOverwatchMapPool = [
 // confirm the exact pool against the CFS R&R.
 export const crossfireMapPool = ['Ankara', 'Black Widow', 'Compound', 'Eagle Eye', 'Port', 'Suzhou', 'Power Supply', 'Sub Base'];
 
+// Battle-royale scoring defaults. placementPoints[i] = points for finishing in position i+1;
+// each kill/elimination adds killPoints. Default mirrors the common Apex/ALGS table and can be
+// overridden per lobby in /br create.
+export const defaultBrPlacementPoints = [12, 9, 7, 5, 4, 3, 3, 2, 2, 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0];
+export const defaultBrKillPoints = 1;
+
+export const BR_GAMES = [
+  { name: 'Apex Legends', value: 'Apex Legends' },
+  { name: 'Fortnite', value: 'Fortnite' },
+  { name: 'Free Fire', value: 'Free Fire' },
+  { name: 'PUBG Mobile', value: 'PUBG Mobile' },
+  { name: 'PUBG: Battlegrounds', value: 'PUBG: Battlegrounds' },
+  { name: 'Other', value: 'Other' },
+];
+
 // Built-in rules presets selectable in /match create. Custom per-guild presets are
 // stored in the database and merged with these in the autocomplete list.
 export const BUILT_IN_PRESETS = [
@@ -346,21 +361,21 @@ export const BUILT_IN_PRESETS = [
     name: 'Apex Legends (EWC 2026)',
     mapPool: ['Match 1', 'Match 2', 'Match 3', 'Match 4', 'Match 5', 'Match 6'],
     vetoMode: 'manual_picks',
-    notes: 'Apex Legends: battle royale — points scored across multiple matches over a map rotation; no veto. Format-only preset; confirm match count and map order per event R&R.',
+    notes: 'Apex Legends is a battle royale — use `/br` to run a points-based lobby across multiple games. This match preset is a 2-team placeholder only.',
   },
   {
     value: 'free_fire',
     name: 'Free Fire (EWC 2026)',
     mapPool: ['Match 1', 'Match 2', 'Match 3', 'Match 4', 'Match 5', 'Match 6'],
     vetoMode: 'manual_picks',
-    notes: 'Free Fire: battle royale — Booyah! points across matches over a map rotation; no veto. Format-only preset; confirm match count and maps per event R&R.',
+    notes: 'Free Fire is a battle royale — use `/br` to run a points-based lobby across multiple games. This match preset is a 2-team placeholder only.',
   },
   {
     value: 'fortnite',
     name: 'Fortnite (EWC 2026)',
     mapPool: ['Match 1', 'Match 2', 'Match 3', 'Match 4', 'Match 5', 'Match 6'],
     vetoMode: 'manual_picks',
-    notes: 'Fortnite: battle royale — placement + elimination points across matches; no veto. Format-only preset; confirm match count per event R&R.',
+    notes: 'Fortnite is a battle royale — use `/br` to run a points-based lobby across multiple games. This match preset is a 2-team placeholder only.',
   },
   {
     value: 'mobile_legends',

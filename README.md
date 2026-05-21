@@ -131,6 +131,7 @@ npm run dev          # watch mode (or: npm start)
 - `/rule search | add | delete` — per-server rulebook.
 - `/preset create | list | delete` — custom per-server rules presets.
 - `/ref-shift` — mark a referee available for targeted pages.
+- `/br create | result | standings | list` — battle-royale lobby scoring: N teams across multiple games with placement + kill points and a live standings board (Apex, Fortnite, Free Fire, PUBG, etc.).
 
 **Player / referee companion (user-installable)**
 - `/match lookup` — player-safe match panel.

@@ -44,6 +44,7 @@ model Organization {
   shifts         RefereeShift[]
   auditLogs      AuditLog[]
   rulesPresets   RulesPreset[]
+  brLobbies      BrLobby[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 }
@@ -63,6 +64,60 @@ model RulesPreset {
 
   @@unique([organizationId, key])
   @@index([organizationId])
+}
+
+// Battle-royale lobby: N teams scored across multiple games by placement + kill points.
+model BrLobby {
+  id               String         @id @default(cuid())
+  publicCode       String         @unique
+  organizationId   String
+  channelId        String?
+  controlMessageId String?
+  createdById      String?
+  name             String
+  game             String
+  status           MatchStatus    @default(PENDING)
+  gamesPlanned     Int            @default(6)
+  killPoints       Int            @default(1)
+  placementPoints  Json
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teams            BrTeam[]
+  results          BrGameResult[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([organizationId])
+}
+
+model BrTeam {
+  id        String         @id @default(cuid())
+  lobbyId   String
+  name      String
+  seed      Int?
+  lobby     BrLobby        @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  results   BrGameResult[]
+  createdAt DateTime       @default(now())
+
+  @@unique([lobbyId, name])
+  @@index([lobbyId])
+}
+
+model BrGameResult {
+  id         String   @id @default(cuid())
+  lobbyId    String
+  brTeamId   String
+  gameNumber Int
+  placement  Int
+  kills      Int
+  points     Int
+  actorId    String?
+  lobby      BrLobby  @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  team       BrTeam   @relation(fields: [brTeamId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([lobbyId, brTeamId, gameNumber])
+  @@index([lobbyId])
 }
 
 model OrgSettings {

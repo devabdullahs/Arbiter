@@ -27,6 +27,8 @@ import { getOnShiftRefereeIds } from '../services/referee-service.js';
 import { dmRefereeRequest, getRefereeRequestTargets } from '../services/referee-notification-service.js';
 import { sendPlayerNotice, sendRefereeReceipt } from '../services/notification-service.js';
 import { canStoreEvidenceInCurrentProvider } from '../services/evidence-storage-service.js';
+import { getBrLobby, parseResultLines, recordBrResults } from '../services/br-service.js';
+import { brStandingsPayload } from '../ui/br-panel.js';
 import { matchPanelPayload, playerMatchPayload, roomPickerPayload, vetoPanelPayload } from '../ui/match-panel.js';
 import { disputeModal, evidenceModal, pauseModal, rulingModal, scoreModal, scoreReportModal, warnModal } from '../ui/modals.js';
 import { customId, parseCustomId } from '../utils/custom-id.js';
@@ -226,6 +228,12 @@ async function handleModalSubmit(interaction) {
   const parsed = parseCustomId(interaction.customId);
 
   if (!parsed) {
+    return;
+  }
+
+  // Battle-royale result modals reference a lobby code, not a match — handle before the match lookup.
+  if (parsed.action === 'br-result-submit') {
+    await handleBrResultSubmit(interaction, parsed);
     return;
   }
 
@@ -617,6 +625,48 @@ async function handleModalSubmit(interaction) {
     await logToChannel(interaction, updated, buildDisputeEmbed(updated, { reason, user: interaction.user }));
     await alertReferees(interaction, updated, `🚨 Dispute raised on \`${updated.id}\` (${updated.teamA} vs ${updated.teamB}) by <@${interaction.user.id}>.`);
   }
+}
+
+async function handleBrResultSubmit(interaction, parsed) {
+  const [code, gameRaw] = parsed.parts;
+  const gameNumber = Number(gameRaw);
+  const lobby = await getBrLobby(code);
+
+  if (!lobby) {
+    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    return;
+  }
+
+  const { entries, invalid } = parseResultLines(interaction.fields.getTextInputValue('results'));
+
+  if (entries.length === 0) {
+    await interaction.reply({
+      content: `No valid result lines found. Use \`TeamName placement kills\` on each line.${
+        invalid.length ? `\nUnparsed: ${invalid.slice(0, 5).join(' | ')}` : ''
+      }`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const result = await recordBrResults(code, { gameNumber, entries, byUser: interaction.user });
+
+  if (result?.lobby?.controlMessageId && result.lobby.channelId) {
+    const channel = await interaction.client.channels.fetch(result.lobby.channelId).catch(() => null);
+
+    if (channel?.isTextBased()) {
+      const message = await channel.messages.fetch(result.lobby.controlMessageId).catch(() => null);
+      await message?.edit(brStandingsPayload(result.lobby)).catch(() => null);
+    }
+  }
+
+  const summary = [
+    `Logged game ${gameNumber} for \`${code}\` — ${result.applied.length} team(s) recorded.`,
+    result.unmatched.length ? `⚠️ Unmatched names (check spelling): ${result.unmatched.join(', ')}` : null,
+    invalid.length ? `⚠️ Skipped ${invalid.length} unparseable line(s).` : null,
+  ].filter(Boolean);
+
+  await interaction.reply({ content: summary.join('\n').slice(0, 1900), ephemeral: true });
 }
 
 function getUploadedAttachments(interaction, customInputId) {

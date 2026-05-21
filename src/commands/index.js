@@ -1,5 +1,6 @@
 import { checkinCommand } from './checkin.js';
 import { callRefCommand } from './call-ref.js';
+import { brCommand } from './br.js';
 import { evidenceCommand } from './evidence.js';
 import { historyCommand } from './history.js';
 import { logCommand } from './log.js';
@@ -36,5 +37,6 @@ export const commands = [
   historyCommand,
   logCommand,
   callRefCommand,
+  brCommand,
   refShiftCommand,
 ];

@@ -1,0 +1,192 @@
+import { randomUUID } from 'node:crypto';
+import { defaultBrKillPoints, defaultBrPlacementPoints } from '../constants.js';
+import { prisma } from '../db/prisma.js';
+import { ensureUserProfile } from './profile-service.js';
+
+const brInclude = {
+  teams: { orderBy: { seed: 'asc' } },
+  results: true,
+  organization: { include: { settings: true } },
+};
+
+function makeLobbyCode() {
+  return `BR${randomUUID().replaceAll('-', '').slice(0, 6).toUpperCase()}`;
+}
+
+export function parseTeamList(raw) {
+  const seen = new Set();
+  return raw
+    .split(/[\n,]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .filter((name) => {
+      const key = name.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+export function parsePlacementPoints(raw) {
+  if (!raw) return null;
+  const values = raw
+    .split(/[\n,\s]+/)
+    .map((entry) => Number(entry.trim()))
+    .filter((value) => Number.isFinite(value));
+  return values.length ? values : null;
+}
+
+// Parse a pasted scoreboard. Each line: "<team name> <placement> <kills>".
+// The last two whitespace-separated tokens are placement and kills; the rest is the name.
+export function parseResultLines(raw) {
+  const entries = [];
+  const invalid = [];
+
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    const tokens = trimmed.split(/\s+/);
+    if (tokens.length < 3) {
+      invalid.push(trimmed);
+      continue;
+    }
+
+    const kills = Number(tokens.pop());
+    const placement = Number(tokens.pop());
+    const name = tokens.join(' ');
+
+    if (!Number.isInteger(placement) || placement < 1 || !Number.isInteger(kills) || kills < 0 || !name) {
+      invalid.push(trimmed);
+      continue;
+    }
+
+    entries.push({ name, placement, kills });
+  }
+
+  return { entries, invalid };
+}
+
+export function pointsFor(placement, kills, placementPoints, killPoints) {
+  const placePts = placement >= 1 && placement <= placementPoints.length ? placementPoints[placement - 1] : 0;
+  return placePts + kills * killPoints;
+}
+
+export async function createBrLobby(input) {
+  const actor = input.createdByUser ? await ensureUserProfile(input.createdByUser) : null;
+  const teams = parseTeamList(input.teamsRaw ?? '');
+
+  if (teams.length < 2) {
+    throw new Error('Add at least two teams (one per line or comma-separated).');
+  }
+
+  const lobby = await prisma.brLobby.create({
+    data: {
+      publicCode: makeLobbyCode(),
+      organizationId: input.organizationId,
+      channelId: input.channelId,
+      createdById: actor?.id,
+      name: input.name,
+      game: input.game,
+      gamesPlanned: input.gamesPlanned ?? 6,
+      killPoints: input.killPoints ?? defaultBrKillPoints,
+      placementPoints: input.placementPoints ?? defaultBrPlacementPoints,
+      teams: { create: teams.map((name, index) => ({ name, seed: index + 1 })) },
+    },
+    include: brInclude,
+  });
+
+  return lobby;
+}
+
+export async function getBrLobby(code) {
+  if (!code) return null;
+
+  return prisma.brLobby.findUnique({
+    where: { publicCode: code.toUpperCase() },
+    include: brInclude,
+  });
+}
+
+export async function listBrLobbies(organizationId) {
+  return prisma.brLobby.findMany({
+    where: { organizationId },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+    include: { teams: true, results: true },
+  });
+}
+
+export async function recordBrResults(code, { gameNumber, entries, byUser }) {
+  const lobby = await getBrLobby(code);
+  if (!lobby) return null;
+
+  const actor = byUser ? await ensureUserProfile(byUser) : null;
+  const placementPoints = Array.isArray(lobby.placementPoints) ? lobby.placementPoints : defaultBrPlacementPoints;
+  const teamByName = new Map(lobby.teams.map((team) => [team.name.toLowerCase(), team]));
+  const applied = [];
+  const unmatched = [];
+
+  for (const entry of entries) {
+    const team = teamByName.get(entry.name.toLowerCase());
+    if (!team) {
+      unmatched.push(entry.name);
+      continue;
+    }
+
+    const points = pointsFor(entry.placement, entry.kills, placementPoints, lobby.killPoints);
+    await prisma.brGameResult.upsert({
+      where: { lobbyId_brTeamId_gameNumber: { lobbyId: lobby.id, brTeamId: team.id, gameNumber } },
+      update: { placement: entry.placement, kills: entry.kills, points, actorId: actor?.id },
+      create: {
+        lobbyId: lobby.id,
+        brTeamId: team.id,
+        gameNumber,
+        placement: entry.placement,
+        kills: entry.kills,
+        points,
+        actorId: actor?.id,
+      },
+    });
+    applied.push({ team: team.name, placement: entry.placement, kills: entry.kills, points });
+  }
+
+  await prisma.brLobby.update({ where: { id: lobby.id }, data: { status: 'LIVE' } });
+
+  return { lobby: await getBrLobby(code), applied, unmatched };
+}
+
+export async function setBrControlMessage(code, { messageId, channelId }) {
+  const lobby = await getBrLobby(code);
+  if (!lobby) return null;
+
+  return prisma.brLobby.update({
+    where: { id: lobby.id },
+    data: { controlMessageId: messageId, channelId: channelId ?? lobby.channelId },
+  });
+}
+
+export function computeBrStandings(lobby) {
+  const byTeam = new Map(
+    lobby.teams.map((team) => [team.id, { name: team.name, points: 0, kills: 0, games: 0, bestPlacement: null }]),
+  );
+
+  for (const result of lobby.results) {
+    const standing = byTeam.get(result.brTeamId);
+    if (!standing) continue;
+    standing.points += result.points;
+    standing.kills += result.kills;
+    standing.games += 1;
+    if (standing.bestPlacement === null || result.placement < standing.bestPlacement) {
+      standing.bestPlacement = result.placement;
+    }
+  }
+
+  return [...byTeam.values()].sort(
+    (a, b) => b.points - a.points || b.kills - a.kills || (a.bestPlacement ?? 999) - (b.bestPlacement ?? 999),
+  );
+}
+
+export function gamesPlayed(lobby) {
+  return lobby.results.reduce((max, result) => Math.max(max, result.gameNumber), 0);
+}
