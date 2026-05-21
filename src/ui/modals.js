@@ -125,12 +125,26 @@ export function brResultModal(lobby, gameNumber) {
     .setTitle(`Game ${gameNumber} - ${lobby.publicCode}`)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `${lobby.name} - ${lobby.game}\nPaste the scoreboard: one team per line as \`Team name  placement  kills\`.`,
+        `${lobby.name} - ${lobby.game}\nThe team list is prefilled. Update the placement and kill numbers for each team.`,
       ),
     )
     .addLabelComponents(
-      paragraphLabel('Game results', 'results', 'One team per line: TeamName placement kills (e.g. "Team Falcons 1 14")'),
+      paragraphLabel(
+        'Game results',
+        'results',
+        'One team per line: TeamName placement kills',
+        true,
+        brScoreboardTemplate(lobby),
+      ),
     );
+}
+
+function brScoreboardTemplate(lobby) {
+  return [...(lobby.teams ?? [])]
+    .sort((a, b) => (a.seed ?? 999) - (b.seed ?? 999) || a.name.localeCompare(b.name))
+    .map((team, index) => `${team.name} ${index + 1} 0`)
+    .join('\n')
+    .slice(0, 1000);
 }
 
 export function brAdjustModal(lobby) {
@@ -217,17 +231,21 @@ function shortLabel(label, customInputId, description, required = true) {
     );
 }
 
-function paragraphLabel(label, customInputId, description, required = true) {
+function paragraphLabel(label, customInputId, description, required = true, value) {
+  const input = new TextInputBuilder()
+    .setCustomId(customInputId)
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(required)
+    .setMaxLength(1000);
+
+  if (value) {
+    input.setValue(value);
+  }
+
   return new LabelBuilder()
     .setLabel(label)
     .setDescription(description)
-    .setTextInputComponent(
-      new TextInputBuilder()
-        .setCustomId(customInputId)
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(required)
-        .setMaxLength(1000),
-    );
+    .setTextInputComponent(input);
 }
 
 function numberLabel(label, customInputId, description, value) {

@@ -1,13 +1,16 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
+import {
+  ButtonBuilder,
+  ButtonStyle,
+  ContainerBuilder,
+  MessageFlags,
+  SeparatorSpacingSize,
+} from 'discord.js';
 import { BRAND_COLOR, DANGER_COLOR, SUCCESS_COLOR, WARNING_COLOR } from '../constants.js';
 import { computeBrStandings, gamesPlayed } from '../services/br-service.js';
 import { customId } from '../utils/custom-id.js';
 
-function medal(index) {
-  if (index === 0) return '🥇';
-  if (index === 1) return '🥈';
-  if (index === 2) return '🥉';
-  return `\`${String(index + 1).padStart(2, ' ')}\``;
+function rankLabel(index) {
+  return `**#${index + 1}**`;
 }
 
 function brButton(action, code, label, style) {
@@ -18,9 +21,13 @@ function isComplete(lobby) {
   return lobby.status === 'complete' || lobby.status === 'COMPLETE';
 }
 
+function isDisputed(lobby) {
+  return lobby.status === 'disputed' || lobby.status === 'DISPUTED';
+}
+
 function panelColor(lobby) {
   if (isComplete(lobby)) return SUCCESS_COLOR;
-  if (lobby.status === 'disputed' || lobby.status === 'DISPUTED') return DANGER_COLOR;
+  if (isDisputed(lobby)) return DANGER_COLOR;
   if ((lobby.logs ?? []).some((log) => log.kind === 'dispute')) return WARNING_COLOR;
   return BRAND_COLOR;
 }
@@ -42,51 +49,79 @@ function operationsSummary(lobby) {
   return parts.length ? parts.join(' | ') : 'No referee actions logged yet.';
 }
 
-export function brStandingsPayload(lobby) {
+function standingsText(lobby) {
   const standings = computeBrStandings(lobby);
-  const played = gamesPlayed(lobby);
-  const complete = isComplete(lobby);
 
-  const lines = standings.length
-    ? standings.map((team, index) => {
-        const adj = team.adjust ? ` _(${team.adjust > 0 ? '+' : ''}${team.adjust} adj)_` : '';
-        return `${medal(index)} **${team.name}** — **${team.points}** pts · ${team.kills} kills · ${team.games}/${lobby.gamesPlanned}${adj}`;
-      })
-    : lobby.teams.map((team) => `• ${team.name}`);
-
-  const embed = new EmbedBuilder()
-    .setColor(panelColor(lobby))
-    .setTitle(`${lobby.name} — ${lobby.game}${complete ? ' (final)' : ''}`)
-    .setDescription(lines.join('\n').slice(0, 4000))
-    .addFields(
-      { name: 'Lobby', value: `\`${lobby.publicCode}\``, inline: true },
-      { name: 'Status', value: String(lobby.status).toLowerCase(), inline: true },
-      { name: 'Teams', value: String(lobby.teams.length), inline: true },
-      { name: 'Games', value: `${played}/${lobby.gamesPlanned}`, inline: true },
-      { name: 'Referee log', value: operationsSummary(lobby), inline: false },
-    )
-    .setFooter({ text: complete ? 'Lobby closed — final standings' : 'Referee controls below · /br result also works' })
-    .setTimestamp();
-
-  const payload = { embeds: [embed], allowedMentions: { parse: [] } };
-
-  if (!complete) {
-    payload.components = [
-      new ActionRowBuilder().setComponents(
-        brButton('br-log', lobby.publicCode, 'Log Game', ButtonStyle.Success),
-        brButton('br-adjust', lobby.publicCode, 'Adjust', ButtonStyle.Primary),
-        brButton('br-pause', lobby.publicCode, 'Pause', ButtonStyle.Secondary),
-        brButton('br-warn', lobby.publicCode, 'Warn', ButtonStyle.Secondary),
-        brButton('br-evidence', lobby.publicCode, 'Evidence', ButtonStyle.Secondary),
-      ),
-      new ActionRowBuilder().setComponents(
-        brButton('br-note', lobby.publicCode, 'Note', ButtonStyle.Secondary),
-        brButton('br-dispute', lobby.publicCode, 'Dispute', ButtonStyle.Danger),
-        brButton('br-callref', lobby.publicCode, 'Call Ref', ButtonStyle.Secondary),
-        brButton('br-close', lobby.publicCode, 'Close', ButtonStyle.Danger),
-      ),
-    ];
+  if (!standings.length) {
+    return lobby.teams.map((team) => `- ${team.name}`).join('\n') || 'No teams registered.';
   }
 
-  return payload;
+  return standings
+    .slice(0, 20)
+    .map((team, index) => {
+      const adj = team.adjust ? ` (${team.adjust > 0 ? '+' : ''}${team.adjust} adj)` : '';
+      return `${rankLabel(index)} ${team.name} - **${team.points}** pts | ${team.kills} kills | ${team.games}/${lobby.gamesPlanned}${adj}`;
+    })
+    .join('\n');
+}
+
+function summaryText(lobby) {
+  const played = gamesPlayed(lobby);
+  const status = String(lobby.status).toLowerCase();
+  const closed = isComplete(lobby) ? '\n**State:** Finalized' : '';
+
+  return [
+    `## ${lobby.name}${isComplete(lobby) ? ' (final)' : ''}`,
+    `**Game:** ${lobby.game}`,
+    `**Lobby:** \`${lobby.publicCode}\``,
+    `**Status:** ${status}`,
+    `**Teams:** ${lobby.teams.length}`,
+    `**Games:** ${played}/${lobby.gamesPlanned}${closed}`,
+  ].join('\n');
+}
+
+export function brStandingsPayload(lobby, ephemeral = false) {
+  const complete = isComplete(lobby);
+  const container = new ContainerBuilder()
+    .setAccentColor(panelColor(lobby))
+    .addTextDisplayComponents((text) => text.setContent(summaryText(lobby)))
+    .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
+    .addTextDisplayComponents((text) => text.setContent(`**Standings**\n${standingsText(lobby)}`))
+    .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
+    .addTextDisplayComponents((text) =>
+      text.setContent(
+        `**Referee log**\n${operationsSummary(lobby)}\n-# ${
+          complete ? 'Lobby closed - final standings.' : 'Use the controls below or /br result to run the lobby.'
+        }`,
+      ),
+    );
+
+  if (!complete) {
+    container
+      .addActionRowComponents((row) =>
+        row.setComponents(
+          brButton('br-log', lobby.publicCode, 'Log Game', ButtonStyle.Success),
+          brButton('br-adjust', lobby.publicCode, 'Adjust', ButtonStyle.Primary),
+          brButton('br-pause', lobby.publicCode, 'Pause', ButtonStyle.Secondary),
+          brButton('br-warn', lobby.publicCode, 'Warn', ButtonStyle.Secondary),
+          brButton('br-evidence', lobby.publicCode, 'Evidence', ButtonStyle.Secondary),
+        ),
+      )
+      .addActionRowComponents((row) =>
+        row.setComponents(
+          brButton('br-note', lobby.publicCode, 'Note', ButtonStyle.Secondary),
+          brButton('br-dispute', lobby.publicCode, 'Dispute', ButtonStyle.Danger),
+          brButton('br-callref', lobby.publicCode, 'Call Ref', ButtonStyle.Secondary),
+          brButton('br-close', lobby.publicCode, 'Close', ButtonStyle.Danger),
+        ),
+      );
+  }
+
+  return {
+    content: null,
+    embeds: null,
+    components: [container],
+    flags: ephemeral ? MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral : MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: [] },
+  };
 }

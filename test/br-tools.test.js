@@ -44,20 +44,19 @@ test('BR standings panel exposes referee controls and log summary', () => {
       { kind: 'dispute' },
     ],
   });
-  const json = {
-    embeds: payload.embeds.map((embed) => embed.toJSON()),
-    components: payload.components.map((row) => row.toJSON()),
-  };
-  const buttonIds = json.components.flatMap((row) => row.components.map((button) => button.custom_id));
-  const refereeLog = json.embeds[0].fields.find((field) => field.name === 'Referee log').value;
+  const json = payload.components.map((component) => component.toJSON());
+  const serialized = JSON.stringify(json);
+  const buttonIds = [...serialized.matchAll(/"custom_id":"([^"]+)"/g)].map((match) => match[1]);
 
+  assert.equal(payload.embeds, null);
+  assert.ok(payload.flags);
   assert.ok(buttonIds.includes('ea:br-log:BRTEST1'));
   assert.ok(buttonIds.includes('ea:br-adjust:BRTEST1'));
   assert.ok(buttonIds.includes('ea:br-pause:BRTEST1'));
   assert.ok(buttonIds.includes('ea:br-warn:BRTEST1'));
   assert.ok(buttonIds.includes('ea:br-evidence:BRTEST1'));
-  assert.match(refereeLog, /1 adjustment/);
-  assert.match(refereeLog, /1 pause/);
-  assert.match(refereeLog, /1 warning/);
-  assert.match(refereeLog, /1 dispute/);
+  assert.match(serialized, /1 adjustment/);
+  assert.match(serialized, /1 pause/);
+  assert.match(serialized, /1 warning/);
+  assert.match(serialized, /1 dispute/);
 });
