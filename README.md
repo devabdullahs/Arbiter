@@ -158,6 +158,14 @@ npm run dev          # watch mode (or: npm start)
 |---|---|
 | ![Evidence vault embed](docs/images/evidence-vault.png) | ![Standalone log receipt](docs/images/standalone-log.png) |
 
+| Pause ledger | Warning summary |
+|---|---|
+| ![Pause ledger output](docs/images/pause-ledger.png) | ![Warning summary output](docs/images/warn-summary.png) |
+
+| Team history | Player history |
+|---|---|
+| ![Team history output](docs/images/history-team.png) | ![Player history output](docs/images/history-player.png) |
+
 ---
 
 ## Architecture
