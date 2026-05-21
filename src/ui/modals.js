@@ -133,6 +133,77 @@ export function brResultModal(lobby, gameNumber) {
     );
 }
 
+export function brAdjustModal(lobby) {
+  return new ModalBuilder()
+    .setCustomId(customId('br-adjust-submit', lobby.publicCode))
+    .setTitle(`Adjust - ${lobby.publicCode}`)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`${lobby.name}: point/kill adjustment. Use negative numbers to deduct (penalty).`),
+    )
+    .addLabelComponents(
+      shortLabel('Team', 'team', 'Exact team name from the lobby'),
+      shortLabel('Points', 'points', 'Point change, e.g. -10 or 5 (blank = 0)', false),
+      shortLabel('Kills', 'kills', 'Kill change, e.g. -3 (blank = 0)', false),
+      paragraphLabel('Reason', 'reason', 'Why the adjustment/penalty was applied'),
+    );
+}
+
+export function brPauseModal(lobby) {
+  return new ModalBuilder()
+    .setCustomId(customId('br-pause-submit', lobby.publicCode))
+    .setTitle(`Pause - ${lobby.publicCode}`)
+    .addLabelComponents(
+      shortLabel('Pause type', 'pause_type', 'technical, server, admin, team, etc.'),
+      shortLabel('Team / target', 'team', 'Team affected, or lobby/admin if not team-specific', false),
+      numberLabel('Duration minutes', 'duration', 'Pause duration in minutes'),
+      paragraphLabel('Reason', 'reason', 'What happened'),
+    );
+}
+
+export function brWarnModal(lobby) {
+  return new ModalBuilder()
+    .setCustomId(customId('br-warn-submit', lobby.publicCode))
+    .setTitle(`Warn - ${lobby.publicCode}`)
+    .addLabelComponents(
+      shortLabel('Player / subject', 'subject', 'Player or team being warned'),
+      shortLabel('Team', 'team', 'Team name from the lobby (for infraction tracking)', false),
+      shortLabel('Rule violation', 'rule', 'Rule code or short violation name'),
+      paragraphLabel('Notes', 'note', 'Context for admins reviewing the warning', false),
+    );
+}
+
+export function brEvidenceModal(lobby) {
+  return new ModalBuilder()
+    .setCustomId(customId('br-evidence-submit', lobby.publicCode))
+    .setTitle(`Evidence - ${lobby.publicCode}`)
+    .addLabelComponents(
+      shortLabel('Team / subject', 'team', 'Team or player the evidence concerns', false),
+      shortLabel('Evidence URL', 'url', 'Link to a screenshot or clip', false),
+      paragraphLabel('Notes', 'note', 'What the evidence shows', false),
+      fileUploadLabel('Upload', 'evidence_files', 'Optional direct upload', false, 3),
+    );
+}
+
+export function brNoteModal(lobby) {
+  return new ModalBuilder()
+    .setCustomId(customId('br-note-submit', lobby.publicCode))
+    .setTitle(`Note - ${lobby.publicCode}`)
+    .addLabelComponents(
+      shortLabel('Short title', 'summary', 'e.g. server reset, ruling note'),
+      paragraphLabel('Details', 'details', 'Useful context for admins and later review'),
+    );
+}
+
+export function brDisputeModal(lobby) {
+  return new ModalBuilder()
+    .setCustomId(customId('br-dispute-submit', lobby.publicCode))
+    .setTitle(`Dispute - ${lobby.publicCode}`)
+    .addLabelComponents(
+      numberLabel('Game number', 'game', 'Which game is disputed'),
+      paragraphLabel('Reason', 'reason', 'What is being disputed and why'),
+    );
+}
+
 function shortLabel(label, customInputId, description, required = true) {
   return new LabelBuilder()
     .setLabel(label)

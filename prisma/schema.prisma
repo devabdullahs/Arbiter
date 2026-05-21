@@ -83,6 +83,8 @@ model BrLobby {
   organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   teams            BrTeam[]
   results          BrGameResult[]
+  adjustments      BrAdjustment[]
+  logs             BrLog[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -90,15 +92,56 @@ model BrLobby {
 }
 
 model BrTeam {
-  id        String         @id @default(cuid())
-  lobbyId   String
-  name      String
-  seed      Int?
-  lobby     BrLobby        @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
-  results   BrGameResult[]
-  createdAt DateTime       @default(now())
+  id          String         @id @default(cuid())
+  lobbyId     String
+  name        String
+  seed        Int?
+  lobby       BrLobby        @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  results     BrGameResult[]
+  adjustments BrAdjustment[]
+  logs        BrLog[]
+  createdAt   DateTime       @default(now())
 
   @@unique([lobbyId, name])
+  @@index([lobbyId])
+}
+
+// Referee point/kill adjustments and penalties — included in standings totals.
+model BrAdjustment {
+  id         String   @id @default(cuid())
+  lobbyId    String
+  brTeamId   String
+  points     Int      @default(0)
+  kills      Int      @default(0)
+  gameNumber Int?
+  reason     String
+  actorId    String?
+  lobby      BrLobby  @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  team       BrTeam   @relation(fields: [brTeamId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([lobbyId])
+}
+
+// Referee log for a lobby: pauses, warnings, evidence, notes, disputes.
+model BrLog {
+  id              String   @id @default(cuid())
+  lobbyId         String
+  kind            String
+  brTeamId        String?
+  subject         String?
+  gameNumber      Int?
+  summary         String?
+  details         String?
+  rule            String?
+  durationMinutes Int?
+  attachmentUrl   String?
+  attachmentName  String?
+  actorId         String?
+  lobby           BrLobby  @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  team            BrTeam?  @relation(fields: [brTeamId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+
   @@index([lobbyId])
 }
 

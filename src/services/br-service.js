@@ -6,6 +6,8 @@ import { ensureUserProfile } from './profile-service.js';
 const brInclude = {
   teams: { orderBy: { seed: 'asc' } },
   results: true,
+  adjustments: true,
+  logs: { orderBy: { createdAt: 'desc' } },
   organization: { include: { settings: true } },
 };
 
@@ -168,7 +170,10 @@ export async function setBrControlMessage(code, { messageId, channelId }) {
 
 export function computeBrStandings(lobby) {
   const byTeam = new Map(
-    lobby.teams.map((team) => [team.id, { name: team.name, points: 0, kills: 0, games: 0, bestPlacement: null }]),
+    lobby.teams.map((team) => [
+      team.id,
+      { id: team.id, name: team.name, points: 0, kills: 0, games: 0, bestPlacement: null, adjust: 0 },
+    ]),
   );
 
   for (const result of lobby.results) {
@@ -182,9 +187,89 @@ export function computeBrStandings(lobby) {
     }
   }
 
+  for (const adjustment of lobby.adjustments ?? []) {
+    const standing = byTeam.get(adjustment.brTeamId);
+    if (!standing) continue;
+    standing.points += adjustment.points;
+    standing.kills += adjustment.kills;
+    standing.adjust += adjustment.points;
+  }
+
   return [...byTeam.values()].sort(
     (a, b) => b.points - a.points || b.kills - a.kills || (a.bestPlacement ?? 999) - (b.bestPlacement ?? 999),
   );
+}
+
+function resolveTeam(lobby, name) {
+  if (!name) return null;
+  return lobby.teams.find((team) => team.name.toLowerCase() === name.toLowerCase()) ?? null;
+}
+
+export async function addBrAdjustment(code, { teamName, points = 0, kills = 0, gameNumber, reason, byUser }) {
+  const lobby = await getBrLobby(code);
+  if (!lobby) return null;
+
+  const team = resolveTeam(lobby, teamName);
+  if (!team) return { lobby, team: null };
+
+  const actor = byUser ? await ensureUserProfile(byUser) : null;
+  await prisma.brAdjustment.create({
+    data: { lobbyId: lobby.id, brTeamId: team.id, points, kills, gameNumber: gameNumber ?? null, reason, actorId: actor?.id },
+  });
+
+  return { lobby: await getBrLobby(code), team };
+}
+
+export async function addBrLog(code, input) {
+  const lobby = await getBrLobby(code);
+  if (!lobby) return null;
+
+  const team = resolveTeam(lobby, input.teamName);
+
+  const actor = input.byUser ? await ensureUserProfile(input.byUser) : null;
+  const log = await prisma.$transaction(async (tx) => {
+    const created = await tx.brLog.create({
+      data: {
+        lobbyId: lobby.id,
+        kind: input.kind,
+        brTeamId: team?.id ?? null,
+        subject: input.subject ?? null,
+        gameNumber: input.gameNumber ?? null,
+        summary: input.summary ?? null,
+        details: input.details ?? null,
+        rule: input.rule ?? null,
+        durationMinutes: input.durationMinutes ?? null,
+        attachmentUrl: input.attachmentUrl ?? null,
+        attachmentName: input.attachmentName ?? null,
+        actorId: actor?.id,
+      },
+    });
+
+    if (input.kind === 'dispute') {
+      await tx.brLobby.update({ where: { id: lobby.id }, data: { status: 'DISPUTED' } });
+    }
+
+    return created;
+  });
+
+  return { lobby: await getBrLobby(code), team, log };
+}
+
+export function countBrWarnings(lobby, { teamId, subject }) {
+  return (lobby.logs ?? []).filter((entry) => {
+    if (entry.kind !== 'warning') return false;
+    if (teamId && entry.brTeamId === teamId) return true;
+    if (subject && entry.subject && entry.subject.toLowerCase() === subject.toLowerCase()) return true;
+    return false;
+  }).length;
+}
+
+export async function closeBrLobby(code) {
+  const lobby = await getBrLobby(code);
+  if (!lobby) return null;
+
+  await prisma.brLobby.update({ where: { id: lobby.id }, data: { status: 'COMPLETE' } });
+  return getBrLobby(code);
 }
 
 export function gamesPlayed(lobby) {

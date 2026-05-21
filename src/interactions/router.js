@@ -27,10 +27,35 @@ import { getOnShiftRefereeIds } from '../services/referee-service.js';
 import { dmRefereeRequest, getRefereeRequestTargets } from '../services/referee-notification-service.js';
 import { sendPlayerNotice, sendRefereeReceipt } from '../services/notification-service.js';
 import { canStoreEvidenceInCurrentProvider } from '../services/evidence-storage-service.js';
-import { getBrLobby, parseResultLines, recordBrResults } from '../services/br-service.js';
+import {
+  addBrAdjustment,
+  addBrLog,
+  closeBrLobby,
+  computeBrStandings,
+  countBrWarnings,
+  gamesPlayed,
+  getBrLobby,
+  parseResultLines,
+  recordBrResults,
+} from '../services/br-service.js';
 import { brStandingsPayload } from '../ui/br-panel.js';
 import { matchPanelPayload, playerMatchPayload, roomPickerPayload, vetoPanelPayload } from '../ui/match-panel.js';
-import { disputeModal, evidenceModal, pauseModal, rulingModal, scoreModal, scoreReportModal, warnModal } from '../ui/modals.js';
+import {
+  brAdjustModal,
+  brDisputeModal,
+  brEvidenceModal,
+  brNoteModal,
+  brPauseModal,
+  brResultModal,
+  brWarnModal,
+  disputeModal,
+  evidenceModal,
+  pauseModal,
+  rulingModal,
+  scoreModal,
+  scoreReportModal,
+  warnModal,
+} from '../ui/modals.js';
 import { customId, parseCustomId } from '../utils/custom-id.js';
 import { updateMatchMessages } from '../utils/match-message-updater.js';
 
@@ -72,6 +97,12 @@ async function handleComponentInteraction(interaction) {
   const parsed = parseCustomId(interaction.customId);
 
   if (!parsed) {
+    return;
+  }
+
+  // Battle-royale control-panel buttons reference a lobby code, not a match.
+  if (parsed.action.startsWith('br-')) {
+    await handleBrComponent(interaction, parsed);
     return;
   }
 
@@ -231,9 +262,9 @@ async function handleModalSubmit(interaction) {
     return;
   }
 
-  // Battle-royale result modals reference a lobby code, not a match — handle before the match lookup.
-  if (parsed.action === 'br-result-submit') {
-    await handleBrResultSubmit(interaction, parsed);
+  // Battle-royale modals reference a lobby code, not a match — handle before the match lookup.
+  if (parsed.action.startsWith('br-')) {
+    await handleBrModalSubmit(interaction, parsed);
     return;
   }
 
@@ -627,6 +658,148 @@ async function handleModalSubmit(interaction) {
   }
 }
 
+async function brCanManage(interaction, lobby) {
+  if (!interaction.guildId) return false;
+  return isOrgRefereeOrAdmin(interaction, { id: lobby.organizationId, settings: lobby.organization?.settings });
+}
+
+async function updateBrPanel(interaction, lobby) {
+  if (!lobby?.controlMessageId || !lobby?.channelId) return;
+  const channel = await interaction.client.channels.fetch(lobby.channelId).catch(() => null);
+  if (!channel?.isTextBased()) return;
+  const message = await channel.messages.fetch(lobby.controlMessageId).catch(() => null);
+  await message?.edit(brStandingsPayload(lobby)).catch(() => null);
+}
+
+async function postBrEmbed(interaction, channelId, embed, file) {
+  if (!channelId) return;
+  const channel = await interaction.client.channels.fetch(channelId).catch(() => null);
+  if (!channel?.isTextBased()) return;
+
+  if (file) {
+    const safeName = (file.name ?? 'evidence').replace(/[^a-zA-Z0-9._-]/g, '_');
+    if (file.contentType?.startsWith('image/')) embed.setImage(`attachment://${safeName}`);
+    await channel
+      .send({ embeds: [embed], files: [{ attachment: file.url, name: safeName }], allowedMentions: { parse: [] } })
+      .catch(async () => {
+        embed.setImage(null);
+        await channel.send({ embeds: [embed], allowedMentions: { parse: [] } }).catch(() => null);
+      });
+    return;
+  }
+
+  await channel.send({ embeds: [embed], allowedMentions: { parse: [] } }).catch(() => null);
+}
+
+function brStandingsText(lobby) {
+  return computeBrStandings(lobby)
+    .slice(0, 20)
+    .map((team, index) => {
+      const adjustment = team.adjust ? ` (${team.adjust > 0 ? '+' : ''}${team.adjust} adj)` : '';
+      return `${index + 1}. ${team.name} - ${team.points} pts, ${team.kills} kills${adjustment}`;
+    })
+    .join('\n')
+    .slice(0, 4000);
+}
+
+async function brCallReferees(interaction, lobby) {
+  const onShiftIds = await getOnShiftRefereeIds(lobby.organizationId);
+  const mentions = onShiftIds.map((id) => `<@${id}>`);
+  const refereeRoleId = lobby.organization?.settings?.refereeRoleId;
+  if (refereeRoleId && interaction.guildId) mentions.push(`<@&${refereeRoleId}>`);
+
+  if (mentions.length === 0) {
+    await interaction.reply({ content: 'No on-shift referees are registered right now.', ephemeral: true });
+    return;
+  }
+
+  await interaction.reply({
+    content: `${mentions.join(' ')} referee requested for BR lobby \`${lobby.publicCode}\` (${lobby.name}).`,
+    allowedMentions: { users: onShiftIds, roles: refereeRoleId && interaction.guildId ? [refereeRoleId] : [] },
+  });
+}
+
+async function handleBrComponent(interaction, parsed) {
+  const [code] = parsed.parts;
+  const lobby = await getBrLobby(code);
+
+  if (!lobby) {
+    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    return;
+  }
+
+  if (!(await brCanManage(interaction, lobby))) {
+    await interaction.reply({ content: 'Only an org admin or referee can use these controls.', ephemeral: true });
+    return;
+  }
+
+  switch (parsed.action) {
+    case 'br-log':
+      await interaction.showModal(brResultModal(lobby, gamesPlayed(lobby) + 1));
+      return;
+    case 'br-adjust':
+      await interaction.showModal(brAdjustModal(lobby));
+      return;
+    case 'br-pause':
+      await interaction.showModal(brPauseModal(lobby));
+      return;
+    case 'br-warn':
+      await interaction.showModal(brWarnModal(lobby));
+      return;
+    case 'br-evidence':
+      await interaction.showModal(brEvidenceModal(lobby));
+      return;
+    case 'br-note':
+      await interaction.showModal(brNoteModal(lobby));
+      return;
+    case 'br-dispute':
+      await interaction.showModal(brDisputeModal(lobby));
+      return;
+    case 'br-callref':
+      await brCallReferees(interaction, lobby);
+      return;
+    case 'br-close': {
+      const updated = await closeBrLobby(code);
+      await interaction.update(brStandingsPayload(updated));
+      const embed = new EmbedBuilder()
+        .setColor(0x57f287)
+        .setTitle('BR Lobby Closed')
+        .setDescription(brStandingsText(updated))
+        .addFields(
+          { name: 'Lobby', value: `\`${updated.publicCode}\``, inline: true },
+          { name: 'Games', value: `${gamesPlayed(updated)}/${updated.gamesPlanned}`, inline: true },
+          { name: 'Closed by', value: `<@${interaction.user.id}>`, inline: true },
+        )
+        .setTimestamp();
+      await postBrEmbed(interaction, updated.organization?.settings?.matchLogChannelId, embed);
+      return;
+    }
+    default:
+      return;
+  }
+}
+
+async function handleBrModalSubmit(interaction, parsed) {
+  switch (parsed.action) {
+    case 'br-result-submit':
+      return handleBrResultSubmit(interaction, parsed);
+    case 'br-adjust-submit':
+      return handleBrAdjustSubmit(interaction, parsed);
+    case 'br-pause-submit':
+      return handleBrPauseSubmit(interaction, parsed);
+    case 'br-warn-submit':
+      return handleBrWarnSubmit(interaction, parsed);
+    case 'br-evidence-submit':
+      return handleBrEvidenceSubmit(interaction, parsed);
+    case 'br-note-submit':
+      return handleBrNoteSubmit(interaction, parsed);
+    case 'br-dispute-submit':
+      return handleBrDisputeSubmit(interaction, parsed);
+    default:
+      return;
+  }
+}
+
 async function handleBrResultSubmit(interaction, parsed) {
   const [code, gameRaw] = parsed.parts;
   const gameNumber = Number(gameRaw);
@@ -650,15 +823,7 @@ async function handleBrResultSubmit(interaction, parsed) {
   }
 
   const result = await recordBrResults(code, { gameNumber, entries, byUser: interaction.user });
-
-  if (result?.lobby?.controlMessageId && result.lobby.channelId) {
-    const channel = await interaction.client.channels.fetch(result.lobby.channelId).catch(() => null);
-
-    if (channel?.isTextBased()) {
-      const message = await channel.messages.fetch(result.lobby.controlMessageId).catch(() => null);
-      await message?.edit(brStandingsPayload(result.lobby)).catch(() => null);
-    }
-  }
+  await updateBrPanel(interaction, result.lobby);
 
   const summary = [
     `Logged game ${gameNumber} for \`${code}\` — ${result.applied.length} team(s) recorded.`,
@@ -666,7 +831,249 @@ async function handleBrResultSubmit(interaction, parsed) {
     invalid.length ? `⚠️ Skipped ${invalid.length} unparseable line(s).` : null,
   ].filter(Boolean);
 
+  const embed = new EmbedBuilder()
+    .setColor(0x57f287)
+    .setTitle('BR Game Results Logged')
+    .setDescription(result.applied.map((entry) => `**${entry.team}** - #${entry.placement}, ${entry.kills} kills, ${entry.points} pts`).join('\n').slice(0, 4000))
+    .addFields(
+      { name: 'Lobby', value: `\`${code}\``, inline: true },
+      { name: 'Game', value: String(gameNumber), inline: true },
+      { name: 'By', value: `<@${interaction.user.id}>`, inline: true },
+    )
+    .setTimestamp();
+  if (result.unmatched.length) embed.addFields({ name: 'Unmatched', value: result.unmatched.join(', ').slice(0, 1000) });
+  if (invalid.length) embed.addFields({ name: 'Skipped lines', value: String(invalid.length), inline: true });
+
+  await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
   await interaction.reply({ content: summary.join('\n').slice(0, 1900), ephemeral: true });
+}
+
+async function handleBrAdjustSubmit(interaction, parsed) {
+  const [code] = parsed.parts;
+  const teamName = interaction.fields.getTextInputValue('team');
+  const points = Number(interaction.fields.getTextInputValue('points') || '0');
+  const kills = Number(interaction.fields.getTextInputValue('kills') || '0');
+  const reason = interaction.fields.getTextInputValue('reason');
+
+  if (!Number.isInteger(points) || !Number.isInteger(kills)) {
+    await interaction.reply({ content: 'Points and kills must be whole numbers (negative to deduct).', ephemeral: true });
+    return;
+  }
+  if (points === 0 && kills === 0) {
+    await interaction.reply({ content: 'Enter a non-zero point or kill change.', ephemeral: true });
+    return;
+  }
+
+  const result = await addBrAdjustment(code, { teamName, points, kills, reason, byUser: interaction.user });
+  if (!result) {
+    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    return;
+  }
+  if (!result.team) {
+    await interaction.reply({ content: `No team named "${teamName}" in this lobby.`, ephemeral: true });
+    return;
+  }
+
+  await updateBrPanel(interaction, result.lobby);
+  const embed = new EmbedBuilder()
+    .setColor(0xfee75c)
+    .setTitle('BR Adjustment')
+    .addFields(
+      { name: 'Lobby', value: `\`${code}\``, inline: true },
+      { name: 'Team', value: teamName, inline: true },
+      {
+        name: 'Change',
+        value: `${points >= 0 ? '+' : ''}${points} pts${kills ? ` · ${kills >= 0 ? '+' : ''}${kills} kills` : ''}`,
+        inline: true,
+      },
+      { name: 'Reason', value: reason || '—', inline: false },
+      { name: 'By', value: `<@${interaction.user.id}>`, inline: true },
+    )
+    .setTimestamp();
+  await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
+  await interaction.reply({ content: `Applied ${points >= 0 ? '+' : ''}${points} pts to ${teamName}.`, ephemeral: true });
+}
+
+async function handleBrPauseSubmit(interaction, parsed) {
+  const [code] = parsed.parts;
+  const pauseType = interaction.fields.getTextInputValue('pause_type');
+  const teamName = interaction.fields.getTextInputValue('team');
+  const durationMinutes = Number(interaction.fields.getTextInputValue('duration'));
+  const reason = interaction.fields.getTextInputValue('reason');
+
+  if (!Number.isInteger(durationMinutes) || durationMinutes < 0) {
+    await interaction.reply({ content: 'Duration must be a whole number of minutes.', ephemeral: true });
+    return;
+  }
+
+  const result = await addBrLog(code, {
+    kind: 'pause',
+    teamName,
+    summary: pauseType,
+    details: reason,
+    durationMinutes,
+    byUser: interaction.user,
+  });
+  if (!result) {
+    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    return;
+  }
+
+  await updateBrPanel(interaction, result.lobby);
+  const endsAt = Math.floor((Date.now() + durationMinutes * 60_000) / 1000);
+  const embed = new EmbedBuilder()
+    .setColor(0xfee75c)
+    .setTitle('BR Pause Logged')
+    .addFields(
+      { name: 'Lobby', value: `\`${code}\``, inline: true },
+      { name: 'Type', value: pauseType || 'team', inline: true },
+      { name: 'Target', value: teamName || '—', inline: true },
+      { name: 'Duration', value: `${durationMinutes} min`, inline: true },
+      { name: 'Resumes', value: `<t:${endsAt}:T> (<t:${endsAt}:R>)`, inline: true },
+      { name: 'Reason', value: reason || '—', inline: false },
+      { name: 'By', value: `<@${interaction.user.id}>`, inline: true },
+    )
+    .setTimestamp();
+  await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
+  await interaction.reply({ content: `Pause logged for \`${code}\`.`, ephemeral: true });
+}
+
+async function handleBrWarnSubmit(interaction, parsed) {
+  const [code] = parsed.parts;
+  const subject = interaction.fields.getTextInputValue('subject');
+  const teamName = interaction.fields.getTextInputValue('team');
+  const rule = interaction.fields.getTextInputValue('rule');
+  const note = interaction.fields.getTextInputValue('note');
+
+  const result = await addBrLog(code, { kind: 'warning', teamName, subject, rule, details: note, byUser: interaction.user });
+  if (!result) {
+    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    return;
+  }
+
+  await updateBrPanel(interaction, result.lobby);
+  const count = countBrWarnings(result.lobby, { teamId: result.team?.id, subject });
+  const embed = new EmbedBuilder()
+    .setColor(0xfee75c)
+    .setTitle('BR Warning Issued')
+    .addFields(
+      { name: 'Lobby', value: `\`${code}\``, inline: true },
+      { name: 'Player / Team', value: subject || teamName || '—', inline: true },
+      { name: 'Infractions', value: String(count), inline: true },
+      { name: 'Rule', value: rule || '—', inline: false },
+      { name: 'Note', value: note || '—', inline: false },
+      { name: 'By', value: `<@${interaction.user.id}>`, inline: true },
+    )
+    .setTimestamp();
+  await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
+  await interaction.reply({ content: `Warning logged for ${subject || teamName} (infraction #${count}).`, ephemeral: true });
+}
+
+async function handleBrEvidenceSubmit(interaction, parsed) {
+  const [code] = parsed.parts;
+  const teamName = interaction.fields.getTextInputValue('team');
+  const url = interaction.fields.getTextInputValue('url');
+  const note = interaction.fields.getTextInputValue('note');
+  const file = getUploadedAttachments(interaction, 'evidence_files')[0];
+
+  if (!url && !file) {
+    await interaction.reply({ content: 'Add an evidence URL or upload a file.', ephemeral: true });
+    return;
+  }
+
+  const result = await addBrLog(code, {
+    kind: 'evidence',
+    teamName,
+    subject: teamName,
+    details: note,
+    attachmentUrl: file?.url ?? url ?? null,
+    attachmentName: file?.name ?? (url ? 'link' : null),
+    byUser: interaction.user,
+  });
+  if (!result) {
+    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    return;
+  }
+
+  await updateBrPanel(interaction, result.lobby);
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle('BR Evidence Submitted')
+    .addFields(
+      { name: 'Lobby', value: `\`${code}\``, inline: true },
+      { name: 'Subject', value: teamName || '—', inline: true },
+      { name: 'Submitted by', value: `<@${interaction.user.id}>`, inline: true },
+    )
+    .setTimestamp();
+  if (note) embed.addFields({ name: 'Note', value: note });
+  if (url) embed.addFields({ name: 'Link', value: url });
+
+  const settings = result.lobby.organization?.settings;
+  await postBrEmbed(interaction, settings?.evidenceChannelId ?? settings?.matchLogChannelId, embed, file);
+  await interaction.reply({ content: `Evidence logged for \`${code}\`.`, ephemeral: true });
+}
+
+async function handleBrNoteSubmit(interaction, parsed) {
+  const [code] = parsed.parts;
+  const summary = interaction.fields.getTextInputValue('summary');
+  const details = interaction.fields.getTextInputValue('details');
+
+  const result = await addBrLog(code, { kind: 'note', summary, details, byUser: interaction.user });
+  if (!result) {
+    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    return;
+  }
+
+  await updateBrPanel(interaction, result.lobby);
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle('BR Referee Note')
+    .addFields(
+      { name: 'Lobby', value: `\`${code}\``, inline: true },
+      { name: 'Summary', value: summary || '—', inline: false },
+      { name: 'Details', value: details || '—', inline: false },
+      { name: 'By', value: `<@${interaction.user.id}>`, inline: true },
+    )
+    .setTimestamp();
+  await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
+  await interaction.reply({ content: `Note saved for \`${code}\`.`, ephemeral: true });
+}
+
+async function handleBrDisputeSubmit(interaction, parsed) {
+  const [code] = parsed.parts;
+  const gameNumber = Number(interaction.fields.getTextInputValue('game'));
+  const reason = interaction.fields.getTextInputValue('reason');
+
+  if (!Number.isInteger(gameNumber) || gameNumber < 1) {
+    await interaction.reply({ content: 'Game number must be a whole number.', ephemeral: true });
+    return;
+  }
+
+  const result = await addBrLog(code, {
+    kind: 'dispute',
+    gameNumber,
+    summary: `Game ${gameNumber} disputed`,
+    details: reason,
+    byUser: interaction.user,
+  });
+  if (!result) {
+    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    return;
+  }
+
+  await updateBrPanel(interaction, result.lobby);
+  const embed = new EmbedBuilder()
+    .setColor(0xed4245)
+    .setTitle('BR Dispute Raised')
+    .addFields(
+      { name: 'Lobby', value: `\`${code}\``, inline: true },
+      { name: 'Game', value: String(gameNumber), inline: true },
+      { name: 'Reason', value: reason || '—', inline: false },
+      { name: 'By', value: `<@${interaction.user.id}>`, inline: true },
+    )
+    .setTimestamp();
+  await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
+  await interaction.reply({ content: `Dispute logged for game ${gameNumber} of \`${code}\`.`, ephemeral: true });
 }
 
 function getUploadedAttachments(interaction, customInputId) {

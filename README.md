@@ -133,6 +133,9 @@ npm run dev          # watch mode (or: npm start)
 - `/ref-shift` — mark a referee available for targeted pages.
 - `/br create | result | standings | list` — battle-royale lobby scoring: N teams across multiple games with placement + kill points and a live standings board (Apex, Fortnite, Free Fire, PUBG, etc.).
 
+- BR control board buttons: Log Game, Adjust/Penalty, Pause, Warn, Evidence, Note, Dispute, Call Ref,
+  and Close, with rich logs to the configured match-log/evidence channels.
+
 **Player / referee companion (user-installable)**
 - `/match lookup` — player-safe match panel.
 - `/profile link | view` — link and view game accounts.

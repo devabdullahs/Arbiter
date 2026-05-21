@@ -30,6 +30,9 @@
 - Referee shifts (`/ref-shift`) and the user-installed referee companion (`/ref-my`)
 - Standalone, matchless logging for external events (`/log`) — saved per referee and retrievable
 
+- Battle-royale referee control boards (`/br`) with scoring, standings, point/kill adjustments, pauses,
+  warnings, evidence, notes, disputes, referee calls, and close/finalize logs
+
 **Player companion**
 - Player-safe match lookup, check-in, evidence submission, and referee calls
 - Game-account linking (`/profile`)
