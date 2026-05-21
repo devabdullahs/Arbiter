@@ -31,6 +31,10 @@ and tier-1 circuit presets for the 2026 season. Custom per-server presets are st
 | `vct_valorant` | Valorant | Final-map veto | VCT 2026 competitive pool (Abyss, Bind, Breeze, Corrode, Haven, Pearl, Split) |
 | `cs2` | Counter-Strike 2 | Final-map veto | CS2 Active Duty 2026 / Premier S4 (Ancient, Anubis, Dust II, Inferno, Mirage, Nuke, Overpass) |
 | `r6s` | Rainbow Six Siege X | Final-map veto | Siege X 2026 pool (Bank, Border, Chalet, Clubhouse, Consulate, Kafe, Lair, Nighthaven Labs, Fortress) |
+| `owcs_ow2` | Overwatch 2 | Series picks (mode rotation) | OWCS 2026 map pool (Control/Hybrid/Push/Flashpoint/Escort); BO3, GF Ft4 |
+| `rlcs` | Rocket League | Manual / no veto | RLCS 2026 — standard arenas; BO5 Major groups, BO7 elimination |
+| `lol` | League of Legends | Manual / no veto | LoL 2026 — Fearless Draft; BO3 regular, BO5 playoffs |
+| `tekken8` | Tekken 8 | Manual / no veto | EWC 2026 — BO5 group stages, BO9 playoffs |
 
 ## Notes For Referees
 

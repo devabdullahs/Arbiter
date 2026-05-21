@@ -139,6 +139,23 @@ export const r6sSiegeXMapPool = [
   'Fortress',
 ];
 
+// OWCS 2026 Overwatch 2 map pool (from a completed OWCS 2026 stage; Midseason pool inherits it).
+export const owcsOverwatchMapPool = [
+  { mode: 'Control', map: 'Busan' },
+  { mode: 'Control', map: 'Lijiang Tower' },
+  { mode: 'Control', map: 'Oasis' },
+  { mode: 'Hybrid', map: 'Blizzard World' },
+  { mode: 'Hybrid', map: 'Midtown' },
+  { mode: 'Hybrid', map: 'Numbani' },
+  { mode: 'Push', map: 'Esperanca' },
+  { mode: 'Push', map: 'Runasapi' },
+  { mode: 'Flashpoint', map: 'Aatlis' },
+  { mode: 'Flashpoint', map: 'Suravasa' },
+  { mode: 'Escort', map: 'Havana' },
+  { mode: 'Escort', map: 'Rialto' },
+  { mode: 'Escort', map: 'Watchpoint: Gibraltar' },
+];
+
 // Built-in rules presets selectable in /match create. Custom per-guild presets are
 // stored in the database and merged with these in the autocomplete list.
 export const BUILT_IN_PRESETS = [
@@ -271,6 +288,39 @@ export const BUILT_IN_PRESETS = [
     vetoMode: 'final_map_ban',
     notes:
       'Siege X competitive pool (2026); Fortress replaces Skyscraper from Operation Tenfold Pursuit. Standard ban/pick map phase with per-match side selection.',
+  },
+  {
+    value: 'owcs_ow2',
+    name: 'Overwatch 2 (OWCS 2026)',
+    mapPool: owcsOverwatchMapPool,
+    vetoMode: 'series_picks',
+    modeRotation: true,
+    notes:
+      'OWCS 2026 map pool (Control, Hybrid, Push, Flashpoint, Escort). Map 1 is Control; modes rotate with no repeats until all have appeared. Matches BO3 (Grand Finals Ft4 / BO7); 1 hero ban per team per map, from a different role than the opponent.',
+  },
+  {
+    value: 'rlcs',
+    name: 'Rocket League (RLCS 2026)',
+    mapPool: ['Game 1', 'Game 2', 'Game 3', 'Game 4', 'Game 5', 'Game 6', 'Game 7'],
+    vetoMode: 'manual_picks',
+    notes:
+      'RLCS 2026: no map veto — played on standard competitive arenas. Opens BO3 then BO5; Major group stage (Round Robin) BO5; elimination BO7. Referee logs each game result.',
+  },
+  {
+    value: 'lol',
+    name: 'League of Legends (2026)',
+    mapPool: ['Game 1', 'Game 2', 'Game 3', 'Game 4', 'Game 5'],
+    vetoMode: 'manual_picks',
+    notes:
+      "League of Legends: single map (Summoner's Rift), no map veto. 2026 uses Fearless Draft — champions played by either team are locked out for the rest of the series. Regular season BO3; playoffs and First Stand BO5.",
+  },
+  {
+    value: 'tekken8',
+    name: 'Tekken 8 (EWC 2026)',
+    mapPool: ['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5'],
+    vetoMode: 'manual_picks',
+    notes:
+      'Tekken 8 at EWC 2026: no stage veto. Double-elimination group stages are BO5; single-elimination playoffs are BO9. Referee logs set results.',
   },
 ];
 
