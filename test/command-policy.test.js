@@ -92,6 +92,49 @@ test('match create includes overwatch rules preset', async () => {
   assert.match(source, /overwatch/);
 });
 
+test('built-in presets cover SEL rule PDFs', async () => {
+  const { BUILT_IN_PRESETS, getBuiltInPreset } = await import('../src/constants.js');
+  const values = BUILT_IN_PRESETS.map((preset) => preset.value);
+
+  assert.ok(values.includes('sel_valorant'));
+  assert.ok(values.includes('sel_women_valorant'));
+  assert.ok(values.includes('sel_ow2'));
+  assert.ok(values.includes('sel_women_ow2'));
+  assert.ok(values.includes('sel_r6s'));
+  assert.ok(values.includes('sel_r6s_wildcard'));
+  assert.ok(values.includes('sel_cod_bo6'));
+  assert.ok(values.includes('sel_rocket_league'));
+  assert.ok(values.includes('sel_pubgm'));
+  assert.ok(values.includes('sel_pubgm_pmnc'));
+  assert.ok(values.includes('sel_eafc'));
+  assert.ok(values.includes('sel_women_eafc'));
+  assert.equal(getBuiltInPreset('sel_r6s').mapPool.length, 9);
+  assert.equal(getBuiltInPreset('sel_cod_bo6').mapPool.some((entry) => entry.mode === 'Search & Destroy'), true);
+});
+
+test('SEL presets constrain mode-aware map selection', async () => {
+  const { getRemainingMaps } = await import('../src/services/match-service.js');
+  const { getBuiltInPreset } = await import('../src/constants.js');
+
+  const womenOwRemaining = getRemainingMaps({
+    rulesPreset: 'sel_women_ow2',
+    vetoMode: 'series_picks',
+    bestOf: 3,
+    mapPool: getBuiltInPreset('sel_women_ow2').mapPool,
+    veto: { picks: [], bans: [] },
+  });
+  const codSecondMapRemaining = getRemainingMaps({
+    rulesPreset: 'sel_cod_bo6',
+    vetoMode: 'manual_picks',
+    bestOf: 5,
+    mapPool: getBuiltInPreset('sel_cod_bo6').mapPool,
+    veto: { picks: [{ map: 'Hacienda (Hardpoint)' }], bans: [] },
+  });
+
+  assert.ok(womenOwRemaining.every((entry) => entry.mode === 'Control'));
+  assert.ok(codSecondMapRemaining.every((entry) => entry.mode === 'Search & Destroy'));
+});
+
 test('match create accepts team role room access options', async () => {
   const { commands } = await import('../src/commands/index.js');
   const match = commands.find((command) => command.data.name === 'match-admin').data.toJSON();

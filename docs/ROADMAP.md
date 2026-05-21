@@ -12,7 +12,7 @@
 - Temporary per-match text + voice rooms, with optional team-role access, cleaned up on close
 - Channel transcript archiving to the match-log channel on close
 - Map veto: single final-map ban, series map picks, and manual picks
-- Rules presets: built-in (Generic, Overwatch mode rotation, Valorant) **and** custom per-server presets via `/preset`
+- Rules presets: built-in SEL presets for Valorant, OW2, R6S, COD BO6, Rocket League, PUBGM, EAFC, and women/wildcard variants **and** custom per-server presets via `/preset`
 
 **Refereeing & adjudication**
 - Referee score reporting with screenshot proof + rich match-log embeds (image inline)

@@ -10,7 +10,16 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
 } from 'discord.js';
-import { BRAND_COLOR, DANGER_COLOR, SUCCESS_COLOR, WARNING_COLOR } from '../constants.js';
+import {
+  BRAND_COLOR,
+  DANGER_COLOR,
+  getBuiltInPresetName,
+  getBuiltInPresetNotes,
+  getModeSequenceForBestOf,
+  isModeRotationPreset,
+  SUCCESS_COLOR,
+  WARNING_COLOR,
+} from '../constants.js';
 import { customId } from '../utils/custom-id.js';
 import { getRemainingMaps } from '../services/match-service.js';
 
@@ -43,7 +52,7 @@ function matchSummary(match) {
 function vetoSummary(match) {
   if (match.vetoMode === 'series_picks' || match.vetoMode === 'manual_picks') {
     const picks = match.veto.picks.map((entry, index) => `${index + 1}. ${entry.team}: ${entry.map}`).join('\n') || 'No maps picked yet.';
-    const rules = match.rulesPreset === 'overwatch' ? '\n**Rule:** Map 1 Control. No repeated map. No repeated mode until all modes have appeared, and next mode must differ from previous mode.' : '';
+    const rules = formatPresetRules(match);
     const target = match.vetoMode === 'series_picks' ? `\n**Maps needed:** ${Math.min(match.bestOf, match.mapPool.length)}` : '';
 
     return `**Pick turn:** ${match.veto.turn}${target}${rules}\n\n**Picked maps**\n${picks}`;
@@ -51,12 +60,31 @@ function vetoSummary(match) {
 
   const bans = match.veto.bans.map((entry) => `${entry.team}: ${entry.map}`).join('\n') || 'No bans yet.';
   const picks = match.veto.picks.map((entry) => `${entry.team}: ${entry.map}`).join('\n') || 'No picks yet.';
-  const valorantNote =
-    match.rulesPreset === 'valorant'
-      ? '\n-# Valorant: the team that did NOT pick a map chooses its starting side (Attack/Defense).'
-      : '';
+  const presetNote = getBuiltInPresetNotes(match.rulesPreset);
+  const note = presetNote ? `\n-# ${presetNote}` : '';
 
-  return `**Veto turn:** ${match.veto.turn} ${match.veto.current}\n\n**Bans**\n${bans}\n\n**Picks**\n${picks}${valorantNote}`;
+  return `**Veto turn:** ${match.veto.turn} ${match.veto.current}\n\n**Bans**\n${bans}\n\n**Picks**\n${picks}${note}`;
+}
+
+function formatPresetRules(match) {
+  const lines = [];
+  const sequence = getModeSequenceForBestOf(match.rulesPreset, match.bestOf);
+  const nextMode = sequence?.[match.veto.picks.length];
+  const notes = getBuiltInPresetNotes(match.rulesPreset);
+
+  if (isModeRotationPreset(match.rulesPreset)) {
+    lines.push('Map 1 Control. No repeated map. No repeated mode until all modes have appeared, and next mode must differ from previous mode.');
+  }
+
+  if (nextMode) {
+    lines.push(`Next required mode: ${nextMode}.`);
+  }
+
+  if (notes) {
+    lines.push(notes);
+  }
+
+  return lines.length ? `\n**Rule:** ${lines.join(' ')}` : '';
 }
 
 export function matchPanelPayload(match, ephemeral = false, options = {}) {
@@ -229,9 +257,7 @@ function getCurrentMap(match) {
 }
 
 function formatRulesPreset(rulesPreset) {
-  if (rulesPreset === 'overwatch') return 'Overwatch mode rotation';
-  if (rulesPreset === 'valorant') return 'Valorant';
-  return rulesPreset;
+  return getBuiltInPresetName(rulesPreset);
 }
 
 function formatTeamRoles(match) {

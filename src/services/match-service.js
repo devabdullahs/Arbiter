@@ -1,5 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { defaultMaps, MatchStatus, overwatchMapPool, valorantMapPool, VetoAction } from '../constants.js';
+import {
+  defaultMaps,
+  getBuiltInPreset,
+  getModeSequenceForBestOf,
+  isModeRotationPreset,
+  MatchStatus,
+  VetoAction,
+} from '../constants.js';
 import { prisma } from '../db/prisma.js';
 import { ensureUserProfile } from './profile-service.js';
 import { getPlayerInfractionSummary } from './infraction-service.js';
@@ -19,27 +26,18 @@ function parseMapPool(mapPool, rulesPreset) {
     return maps;
   }
 
-  if (rulesPreset === 'overwatch') {
-    return overwatchMapPool;
-  }
+  const preset = getBuiltInPreset(rulesPreset);
 
-  if (rulesPreset === 'valorant') {
-    return valorantMapPool;
+  if (preset?.mapPool) {
+    return preset.mapPool;
   }
 
   return maps?.length ? maps : defaultMaps;
 }
 
 function defaultVetoMode(rulesPreset, bestOf) {
-  // Overwatch is a pick-based series with mode rotation.
-  if (rulesPreset === 'overwatch') {
-    return 'series_picks';
-  }
-
-  // Valorant uses a ban/pick veto (ban down for BO1, ban + pick for series).
-  if (rulesPreset === 'valorant') {
-    return 'final_map_ban';
-  }
+  const preset = getBuiltInPreset(rulesPreset);
+  if (preset?.vetoMode) return preset.vetoMode;
 
   return bestOf > 1 ? 'series_picks' : 'final_map_ban';
 }
@@ -200,14 +198,30 @@ export function getRemainingMaps(match) {
     picks: match.veto.picks,
   });
 
-  if (match.rulesPreset === 'overwatch' && (match.vetoMode === 'series_picks' || match.vetoMode === 'manual_picks')) {
-    remaining = filterOverwatchModeRotation(match, remaining);
+  if (match.vetoMode === 'series_picks' || match.vetoMode === 'manual_picks') {
+    remaining = filterPresetMapChoices(match, remaining);
   }
 
   return remaining;
 }
 
-function filterOverwatchModeRotation(match, remaining) {
+function filterPresetMapChoices(match, remaining) {
+  const sequence = getModeSequenceForBestOf(match.rulesPreset, match.bestOf);
+  const nextMode = sequence?.[match.veto.picks.length];
+
+  if (nextMode) {
+    const modeRemaining = remaining.filter((entry) => mapModeOf(entry) === nextMode);
+    if (modeRemaining.length) return modeRemaining;
+  }
+
+  if (isModeRotationPreset(match.rulesPreset)) {
+    return filterModeRotation(match, remaining);
+  }
+
+  return remaining;
+}
+
+function filterModeRotation(match, remaining) {
   const picks = match.veto.picks;
 
   if (picks.length === 0) {

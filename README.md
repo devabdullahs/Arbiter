@@ -28,10 +28,11 @@ configured org server **and** as a user-installed companion app for referees wor
 
 **Map veto & rules presets**
 - Veto formats: single final-map ban, series map picks, and manual picks.
-- Built-in presets: **Generic**, **Overwatch** (mode-rotation pick flow), and **Valorant** (current
-  competitive map pool + ban/pick veto with side-selection reminders).
+- Built-in presets: **Generic**, **SEL Valorant**, **SEL OW2**, **SEL R6S**, **SEL COD BO6**,
+  **SEL Rocket League**, **SEL PUBGM**, **SEL EAFC**, and women/wildcard variants.
 - **Custom per-server presets** via `/preset` — define your own map pool + veto format, saved per guild
   and selectable in match creation through autocomplete.
+- See [docs/PRESETS.md](docs/PRESETS.md) for preset keys and PDF coverage.
 
 **Scoring**
 - Referee score reporting with required screenshot proof, logged as a rich match-log embed (with the
