@@ -1,6 +1,7 @@
 import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import { addEvidence, getMatch, reviewEvidence } from '../services/match-service.js';
 import { isOrgRefereeOrAdmin } from '../services/org-service.js';
+import { canStoreEvidenceInCurrentProvider, describeEvidenceStorageProvider } from '../services/evidence-storage-service.js';
 import { playerCompanion } from './install-contexts.js';
 
 export const evidenceCommand = {
@@ -111,7 +112,7 @@ export const evidenceCommand = {
     });
     await interaction.reply({
       content: mirrored
-        ? `Evidence added to match \`${result.match.id}\` and mirrored to the evidence vault.`
+        ? `Evidence added to match \`${result.match.id}\` and mirrored to ${describeEvidenceStorageProvider()}.`
         : `Evidence added to match \`${result.match.id}\`. Evidence vault mirroring is not available from this context unless the bot can access the org server.`,
       ephemeral: true,
     });
@@ -119,7 +120,7 @@ export const evidenceCommand = {
 };
 
 async function mirrorEvidence(interaction, match, { url, file, note, evidenceId }) {
-  if (!match.settings?.evidenceChannelId) {
+  if (!canStoreEvidenceInCurrentProvider(match, { attachments: file ? [file] : [], urls: url ? [url] : [] })) {
     return false;
   }
 

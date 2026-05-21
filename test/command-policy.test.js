@@ -196,3 +196,21 @@ test('user-installed ref companion supports protected off-guild referee workflow
   assert.match(source, /createPauseReminder/);
   assert.match(source, /updateMatchMessages/);
 });
+
+test('roadmap operations commands are registered', async () => {
+  const { commands } = await import('../src/commands/index.js');
+  const names = commands.map((command) => command.data.name);
+  const pause = commands.find((command) => command.data.name === 'pause').data.toJSON();
+  const warn = commands.find((command) => command.data.name === 'warn').data.toJSON();
+  const history = commands.find((command) => command.data.name === 'history').data.toJSON();
+  const evidenceStorage = await readFile(new URL('../src/services/evidence-storage-service.js', import.meta.url), 'utf8');
+  const router = await readFile(new URL('../src/interactions/router.js', import.meta.url), 'utf8');
+
+  assert.ok(names.includes('pause'));
+  assert.ok(names.includes('history'));
+  assert.ok(pause.options.some((option) => option.name === 'ledger'));
+  assert.ok(warn.options.some((option) => option.name === 'summary'));
+  assert.deepEqual(history.options.map((option) => option.name), ['team', 'player']);
+  assert.match(evidenceStorage, /EvidenceStorageProvider/);
+  assert.match(router, /alertInfractionThreshold/);
+});

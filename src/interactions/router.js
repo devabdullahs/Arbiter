@@ -26,6 +26,7 @@ import { isOrgRefereeOrAdmin } from '../services/org-service.js';
 import { getOnShiftRefereeIds } from '../services/referee-service.js';
 import { dmRefereeRequest, getRefereeRequestTargets } from '../services/referee-notification-service.js';
 import { sendPlayerNotice, sendRefereeReceipt } from '../services/notification-service.js';
+import { canStoreEvidenceInCurrentProvider } from '../services/evidence-storage-service.js';
 import { matchPanelPayload, playerMatchPayload, roomPickerPayload, vetoPanelPayload } from '../ui/match-panel.js';
 import { disputeModal, evidenceModal, pauseModal, rulingModal, scoreModal, scoreReportModal, warnModal } from '../ui/modals.js';
 import { customId, parseCustomId } from '../utils/custom-id.js';
@@ -461,7 +462,7 @@ async function handleModalSubmit(interaction) {
   }
 
   if (parsed.action === 'warn-submit') {
-    const { match: updated } = await logWarning(match.id, {
+    const { match: updated, infraction } = await logWarning(match.id, {
       player: interaction.fields.getTextInputValue('player'),
       rule: interaction.fields.getTextInputValue('rule'),
       note: interaction.fields.getTextInputValue('note'),
@@ -481,7 +482,9 @@ async function handleModalSubmit(interaction) {
       rule: interaction.fields.getTextInputValue('rule'),
       note: interaction.fields.getTextInputValue('note'),
       user: interaction.user,
+      infraction,
     }));
+    await alertInfractionThreshold(interaction, updated, infraction);
     await logToEvidenceVault(interaction, updated, {
       label: 'Warning evidence',
       note: `${interaction.fields.getTextInputValue('player')} — ${interaction.fields.getTextInputValue('rule')}`,
@@ -497,7 +500,7 @@ async function handleModalSubmit(interaction) {
     const note = interaction.fields.getTextInputValue('note');
     const player = await interaction.client.users.fetch(playerId).catch(() => null);
     const playerLabel = player ? `${player.tag ?? player.username} (${player.id})` : playerId;
-    const { match: updated } = await logWarning(match.id, {
+    const { match: updated, infraction } = await logWarning(match.id, {
       player: playerLabel,
       playerDiscordId: playerId,
       rule,
@@ -520,7 +523,9 @@ async function handleModalSubmit(interaction) {
       rule,
       note,
       user: interaction.user,
+      infraction,
     }));
+    await alertInfractionThreshold(interaction, updated, infraction);
     await logToEvidenceVault(interaction, updated, {
       label: 'Warning evidence',
       note: `${playerLabel} — ${rule}`,
@@ -996,6 +1001,28 @@ async function alertReferees(interaction, match, content) {
     .catch(() => null);
 }
 
+async function alertInfractionThreshold(interaction, match, infraction) {
+  if (!infraction?.shouldEscalate || !match.settings?.matchLogChannelId) {
+    return;
+  }
+
+  const channel = await interaction.client.channels.fetch(match.settings.matchLogChannelId).catch(() => null);
+
+  if (!channel?.isTextBased()) {
+    return;
+  }
+
+  const adminRoleId = match.settings?.adminRoleId;
+  const mention = adminRoleId ? `<@&${adminRoleId}> ` : '';
+
+  await channel
+    .send({
+      content: `${mention}Infraction threshold reached for ${infraction.player}: ${infraction.warningCount}/${infraction.threshold} warnings. Review match \`${match.id}\`.`,
+      allowedMentions: { roles: adminRoleId ? [adminRoleId] : [] },
+    })
+    .catch(() => null);
+}
+
 function schedulePauseResume(client, match, { durationMinutes, channelId, byUserId }) {
   if (!Number.isFinite(durationMinutes) || durationMinutes <= 0 || !channelId) {
     return;
@@ -1131,8 +1158,8 @@ function buildRulingEmbed(match, { ruling, team, reason, user }) {
     .setTimestamp();
 }
 
-function buildWarningEmbed(match, { player, rule, note, user }) {
-  return new EmbedBuilder()
+function buildWarningEmbed(match, { player, rule, note, user, infraction }) {
+  const embed = new EmbedBuilder()
     .setColor(0xfee75c)
     .setTitle('Warning Issued')
     .addFields(
@@ -1144,6 +1171,16 @@ function buildWarningEmbed(match, { player, rule, note, user }) {
       { name: 'Issued by', value: `<@${user.id}>`, inline: true },
     )
     .setTimestamp();
+
+  if (infraction) {
+    embed.addFields({
+      name: 'Infraction count',
+      value: `${infraction.warningCount}/${infraction.threshold} warning threshold${infraction.thresholdReached ? ' - admin review recommended' : ''}`,
+      inline: false,
+    });
+  }
+
+  return embed;
 }
 
 function buildRefLogEmbed(match, { kind, summary, details, player, user }) {
@@ -1280,7 +1317,7 @@ function getCurrentMapLabel(match) {
 }
 
 async function logToEvidenceVault(interaction, match, { label, note, player, attachments = [], urls = [], evidenceId }) {
-  if (!match.settings?.evidenceChannelId || (attachments.length === 0 && urls.length === 0)) {
+  if (!canStoreEvidenceInCurrentProvider(match, { attachments, urls })) {
     return;
   }
 

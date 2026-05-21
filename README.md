@@ -51,6 +51,9 @@ configured org server **and** as a user-installed companion app for referees wor
   embeds that show the image inline and tag related players.
 - User pickers in modals support selecting **multiple players** (up to 25) plus a free-text fallback.
 - Pause logs include duration and a live Discord "resumes at" timestamp.
+- Pause budget ledger shows team pause usage and remaining time per match.
+- Warning summaries track player infraction counts and alert admins when the threshold is reached.
+- Team/player history lookup gives referees prior matches, warnings, rosters, evidence, and pause context.
 - **Standalone `/log`** (user-installed): referees working external tournaments — where the bot isn't in
   the server and no match exists — can log notes, scores, evidence, and warnings with no `match_id`.
   Each entry is saved to the referee's profile, DM'd back as a receipt, and retrievable via `/log list`.
@@ -118,6 +121,9 @@ npm run dev          # watch mode (or: npm start)
   forfeit/DQ/no-show/admin-loss/cancellation ruling.
 - `/score report` — modal for final score + required screenshot proof.
 - `/warn issue` — warn a player, attach evidence, DM a receipt, optionally DM the player.
+- `/warn summary` — show a player warning count and recent warning history.
+- `/pause ledger` — show each team's pause budget usage and remaining time for a match.
+- `/history team | player` — look up prior team/player operational history for referee review.
 - `/ref-log add` — referee notes, dispute rulings, roster/technical/pause notes, with attachments.
 - `/ref dashboard | assign | unassign` — referee work queue and assignment.
 - `/roster submit | view | approve | reject` — match roster workflow.

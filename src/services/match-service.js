@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { defaultMaps, MatchStatus, overwatchMapPool, valorantMapPool, VetoAction } from '../constants.js';
 import { prisma } from '../db/prisma.js';
 import { ensureUserProfile } from './profile-service.js';
+import { getPlayerInfractionSummary } from './infraction-service.js';
 import { getRemainingMapsFromView, toDbStatus, toDbVetoKind, toMatchView } from '../utils/match-view.js';
 
 function makeMatchCode() {
@@ -468,7 +469,12 @@ export async function logWarning(matchCode, input) {
     return created;
   });
 
-  return { match: await getMatch(matchCode), warning };
+  const infraction = await getPlayerInfractionSummary(record.organizationId, {
+    player: input.player,
+    playerDiscordId: input.playerDiscordId,
+  });
+
+  return { match: await getMatch(matchCode), warning, infraction };
 }
 
 export async function addEvidence(matchCode, input) {

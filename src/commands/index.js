@@ -1,9 +1,11 @@
 import { checkinCommand } from './checkin.js';
 import { callRefCommand } from './call-ref.js';
 import { evidenceCommand } from './evidence.js';
+import { historyCommand } from './history.js';
 import { logCommand } from './log.js';
 import { matchAdminCommand, matchCommand } from './match.js';
 import { orgCommand } from './org.js';
+import { pauseCommand } from './pause.js';
 import { presetCommand } from './preset.js';
 import { profileCommand } from './profile.js';
 import { refCommand } from './ref.js';
@@ -17,6 +19,7 @@ import { warnCommand } from './warn.js';
 
 export const commands = [
   orgCommand,
+  pauseCommand,
   presetCommand,
   refCommand,
   refMyCommand,
@@ -30,6 +33,7 @@ export const commands = [
   profileCommand,
   checkinCommand,
   evidenceCommand,
+  historyCommand,
   logCommand,
   callRefCommand,
   refShiftCommand,
