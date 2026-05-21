@@ -122,6 +122,23 @@ export const selPUBGMMapPool = [
 export const selEAFCMapPool = ['Game 1', 'Game 2'];
 export const selWomenEAFCMapPool = ['Game 1', 'Game 2', 'Game 3'];
 
+// Tier-1 circuit map pools (2026 snapshots). These rotate frequently — Valorant per act,
+// CS2 ~every six months with Premier seasons, R6 per operation — so update when the
+// circuit pool changes.
+export const vctValorantMapPool = ['Abyss', 'Bind', 'Breeze', 'Corrode', 'Haven', 'Pearl', 'Split'];
+export const cs2ActiveDutyMapPool = ['Ancient', 'Anubis', 'Dust II', 'Inferno', 'Mirage', 'Nuke', 'Overpass'];
+export const r6sSiegeXMapPool = [
+  'Bank',
+  'Border',
+  'Chalet',
+  'Clubhouse',
+  'Consulate',
+  'Kafe Dostoyevsky',
+  'Lair',
+  'Nighthaven Labs',
+  'Fortress',
+];
+
 // Built-in rules presets selectable in /match create. Custom per-guild presets are
 // stored in the database and merged with these in the autocomplete list.
 export const BUILT_IN_PRESETS = [
@@ -230,6 +247,30 @@ export const BUILT_IN_PRESETS = [
     mapPool: selWomenEAFCMapPool,
     vetoMode: 'manual_picks',
     notes: 'SEL Women EAFC uses BO3. Pauses: max 3 per match, 90 seconds each.',
+  },
+  {
+    value: 'vct_valorant',
+    name: 'Valorant (VCT 2026)',
+    mapPool: vctValorantMapPool,
+    vetoMode: 'final_map_ban',
+    notes:
+      'VCT 2026 competitive pool. BO3 order: ban, ban, pick, pick, ban, ban, decider; the team that did NOT pick a map chooses its starting side. Map/side priority by seeding (1v1 skirmish at Kickoffs). Pool rotates per act.',
+  },
+  {
+    value: 'cs2',
+    name: 'Counter-Strike 2 (2026)',
+    mapPool: cs2ActiveDutyMapPool,
+    vetoMode: 'final_map_ban',
+    notes:
+      'CS2 Active Duty pool (Premier Season 4, 2026). BO3 order: A ban, B ban, A pick, B pick, A ban, B ban, last map is the decider; sides decided by a knife round. Pool rotates ~every six months.',
+  },
+  {
+    value: 'r6s',
+    name: 'Rainbow Six Siege X (2026)',
+    mapPool: r6sSiegeXMapPool,
+    vetoMode: 'final_map_ban',
+    notes:
+      'Siege X competitive pool (2026); Fortress replaces Skyscraper from Operation Tenfold Pursuit. Standard ban/pick map phase with per-match side selection.',
   },
 ];
 
