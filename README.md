@@ -1,4 +1,6 @@
-# Esports Admin Bot
+# Arbiter
+
+**A Discord referee & match-operations bot for esports.**
 
 A multi-tenant Discord esports operations bot for referees and tournament admins, built with
 [`discord.js`](https://discord.js.org/) (Components V2 + modals), PostgreSQL, and Prisma.
@@ -180,7 +182,7 @@ Sponsorship is what keeps it actively maintained and is hugely appreciated.
 - **Author:** Abdullah
 - **GitHub:** [@devabdullahs](https://github.com/devabdullahs)
 - **Discord:** [@monster20](https://discord.com/users/170115708871507970)
-- **Project repo:** https://github.com/devabdullahs/esports-referee-bot
+- **Project repo:** https://github.com/devabdullahs/Arbiter
 
 ## License
 

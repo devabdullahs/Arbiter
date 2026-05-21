@@ -4,5 +4,5 @@ contact_links:
     url: https://discord.com/users/170115708871507970
     about: Reach the maintainer (@monster20) on Discord for questions and help.
   - name: Report a security vulnerability
-    url: https://github.com/devabdullahs/esports-referee-bot/security/advisories/new
+    url: https://github.com/devabdullahs/Arbiter/security/advisories/new
     about: Please report vulnerabilities privately — do not open a public issue.

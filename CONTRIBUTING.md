@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in improving the Esports Admin Bot! Bug reports, feature ideas, docs, and
+Thanks for your interest in improving Arbiter! Bug reports, feature ideas, docs, and
 code contributions are all welcome.
 
 > **License note:** This project is licensed under the **Apache License 2.0**. By contributing, you
