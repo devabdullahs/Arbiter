@@ -139,21 +139,21 @@ export const r6sSiegeXMapPool = [
   'Fortress',
 ];
 
-// OWCS 2026 Overwatch 2 map pool (from a completed OWCS 2026 stage; Midseason pool inherits it).
+// OWCS 2026 Champions Clash map pool (Liquipedia, Overwatch Champions Series 2026/Champions_Clash).
 export const owcsOverwatchMapPool = [
-  { mode: 'Control', map: 'Busan' },
-  { mode: 'Control', map: 'Lijiang Tower' },
+  { mode: 'Control', map: 'Ilios' },
+  { mode: 'Control', map: 'Antarctic Peninsula' },
   { mode: 'Control', map: 'Oasis' },
-  { mode: 'Hybrid', map: 'Blizzard World' },
-  { mode: 'Hybrid', map: 'Midtown' },
+  { mode: 'Hybrid', map: 'Hollywood' },
   { mode: 'Hybrid', map: 'Numbani' },
-  { mode: 'Push', map: 'Esperanca' },
-  { mode: 'Push', map: 'Runasapi' },
-  { mode: 'Flashpoint', map: 'Aatlis' },
+  { mode: 'Hybrid', map: "King's Row" },
+  { mode: 'Flashpoint', map: 'New Junk City' },
   { mode: 'Flashpoint', map: 'Suravasa' },
-  { mode: 'Escort', map: 'Havana' },
+  { mode: 'Push', map: 'Runasapi' },
+  { mode: 'Push', map: 'New Queen Street' },
   { mode: 'Escort', map: 'Rialto' },
-  { mode: 'Escort', map: 'Watchpoint: Gibraltar' },
+  { mode: 'Escort', map: 'Circuit Royal' },
+  { mode: 'Escort', map: 'Dorado' },
 ];
 
 // CrossFire CFS/EWC competitive pool (Search & Destroy only). Map editions vary per event;
@@ -300,7 +300,7 @@ export const BUILT_IN_PRESETS = [
     vetoMode: 'series_picks',
     modeRotation: true,
     notes:
-      'OWCS 2026 map pool (Control, Hybrid, Push, Flashpoint, Escort). Map 1 is Control; modes rotate with no repeats until all have appeared. Matches BO3 (Grand Finals Ft4 / BO7); 1 hero ban per team per map, from a different role than the opponent.',
+      'OWCS 2026 Champions Clash pool (Control, Hybrid, Flashpoint, Push, Escort). Map 1 is Control; modes rotate with no repeats until all appear. Format: UB/LB Round 1 Ft2, all other matches Ft3, Grand Finals Ft4. Hero bans: each team bans 1 hero per map (affects both teams), from a different role than the opponent ban; a team may ban a hero only once per series; the higher seed (or the team that lost the last map) chooses to ban first or second.',
   },
   {
     value: 'rlcs',
