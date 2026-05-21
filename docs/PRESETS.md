@@ -35,6 +35,19 @@ and tier-1 circuit presets for the 2026 season. Custom per-server presets are st
 | `rlcs` | Rocket League | Manual / no veto | RLCS 2026 — standard arenas; BO5 Major groups, BO7 elimination |
 | `lol` | League of Legends | Manual / no veto | LoL 2026 — Fearless Draft; BO3 regular, BO5 playoffs |
 | `tekken8` | Tekken 8 | Manual / no veto | EWC 2026 — BO5 group stages, BO9 playoffs |
+| `crossfire` | CrossFire | Final-map veto | CFS/EWC 2026 — Search & Destroy only (Ankara, Black Widow, Compound, Eagle Eye, Port, Suzhou, Power Supply, Sub Base) |
+| `dota2` | Dota 2 | Manual / no veto | EWC 2026 — format-only (confirm BO per R&R) |
+| `apex` | Apex Legends | Manual / no veto | EWC 2026 — battle royale points, format-only |
+| `free_fire` | Free Fire | Manual / no veto | EWC 2026 — battle royale points, format-only |
+| `fortnite` | Fortnite | Manual / no veto | EWC 2026 — battle royale points, format-only |
+| `mobile_legends` | Mobile Legends | Manual / no veto | EWC 2026 — format-only |
+| `honor_of_kings` | Honor of Kings | Manual / no veto | EWC 2026 — format-only |
+| `street_fighter6` | Street Fighter 6 | Manual / no veto | EWC 2026 — format-only |
+| `chess` | Chess | Manual / no veto | EWC 2026 — format-only |
+| `trackmania` | Trackmania | Manual / no veto | EWC 2026 — format-only |
+
+> The EWC 2026 format-only presets above are **provisional first passes** (no map veto). Their BO/format
+> notes should be confirmed against each title's official R&R PDF (drop them in `docs/rulebooks/`).
 
 ## Notes For Referees
 

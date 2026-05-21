@@ -156,6 +156,10 @@ export const owcsOverwatchMapPool = [
   { mode: 'Escort', map: 'Watchpoint: Gibraltar' },
 ];
 
+// CrossFire CFS/EWC competitive pool (Search & Destroy only). Map editions vary per event;
+// confirm the exact pool against the CFS R&R.
+export const crossfireMapPool = ['Ankara', 'Black Widow', 'Compound', 'Eagle Eye', 'Port', 'Suzhou', 'Power Supply', 'Sub Base'];
+
 // Built-in rules presets selectable in /match create. Custom per-guild presets are
 // stored in the database and merged with these in the autocomplete list.
 export const BUILT_IN_PRESETS = [
@@ -321,6 +325,77 @@ export const BUILT_IN_PRESETS = [
     vetoMode: 'manual_picks',
     notes:
       'Tekken 8 at EWC 2026: no stage veto. Double-elimination group stages are BO5; single-elimination playoffs are BO9. Referee logs set results.',
+  },
+  {
+    value: 'crossfire',
+    name: 'CrossFire (CFS/EWC 2026)',
+    mapPool: crossfireMapPool,
+    vetoMode: 'final_map_ban',
+    notes:
+      'CrossFire CFS/EWC 2026: Search & Destroy only; standard ban/pick map veto. Rounds use Elimination x2 (sides switch after 9 total rounds; first to 10 wins). Confirm the exact map editions per the CFS R&R.',
+  },
+  {
+    value: 'dota2',
+    name: 'Dota 2 (EWC 2026)',
+    mapPool: ['Game 1', 'Game 2', 'Game 3', 'Game 4', 'Game 5'],
+    vetoMode: 'manual_picks',
+    notes: 'Dota 2: single map, draft-based — no map veto. Format-only preset; confirm BO per event R&R (commonly BO2 groups, BO3 playoffs, BO5 finals).',
+  },
+  {
+    value: 'apex',
+    name: 'Apex Legends (EWC 2026)',
+    mapPool: ['Match 1', 'Match 2', 'Match 3', 'Match 4', 'Match 5', 'Match 6'],
+    vetoMode: 'manual_picks',
+    notes: 'Apex Legends: battle royale — points scored across multiple matches over a map rotation; no veto. Format-only preset; confirm match count and map order per event R&R.',
+  },
+  {
+    value: 'free_fire',
+    name: 'Free Fire (EWC 2026)',
+    mapPool: ['Match 1', 'Match 2', 'Match 3', 'Match 4', 'Match 5', 'Match 6'],
+    vetoMode: 'manual_picks',
+    notes: 'Free Fire: battle royale — Booyah! points across matches over a map rotation; no veto. Format-only preset; confirm match count and maps per event R&R.',
+  },
+  {
+    value: 'fortnite',
+    name: 'Fortnite (EWC 2026)',
+    mapPool: ['Match 1', 'Match 2', 'Match 3', 'Match 4', 'Match 5', 'Match 6'],
+    vetoMode: 'manual_picks',
+    notes: 'Fortnite: battle royale — placement + elimination points across matches; no veto. Format-only preset; confirm match count per event R&R.',
+  },
+  {
+    value: 'mobile_legends',
+    name: 'Mobile Legends (EWC 2026)',
+    mapPool: ['Game 1', 'Game 2', 'Game 3', 'Game 4', 'Game 5', 'Game 6', 'Game 7'],
+    vetoMode: 'manual_picks',
+    notes: 'Mobile Legends: single map (Land of Dawn), draft + global ban — no map veto. Format-only preset; confirm BO per event R&R (commonly BO3/BO5/BO7).',
+  },
+  {
+    value: 'honor_of_kings',
+    name: 'Honor of Kings (EWC 2026)',
+    mapPool: ['Game 1', 'Game 2', 'Game 3', 'Game 4', 'Game 5', 'Game 6', 'Game 7'],
+    vetoMode: 'manual_picks',
+    notes: 'Honor of Kings: single map, draft-based — no map veto. Format-only preset; confirm BO per event R&R (commonly BO5/BO7).',
+  },
+  {
+    value: 'street_fighter6',
+    name: 'Street Fighter 6 (EWC 2026)',
+    mapPool: ['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5'],
+    vetoMode: 'manual_picks',
+    notes: 'Street Fighter 6: no stage veto. Format-only preset; confirm format per event R&R (commonly FT2 in groups, FT3 in playoffs, with a Grand Final bracket reset).',
+  },
+  {
+    value: 'chess',
+    name: 'Chess (EWC 2026)',
+    mapPool: ['Game 1', 'Game 2', 'Game 3', 'Game 4'],
+    vetoMode: 'manual_picks',
+    notes: 'Chess: no map. Format-only preset (rapid/blitz games or knockout); confirm format and tiebreaks per event R&R.',
+  },
+  {
+    value: 'trackmania',
+    name: 'Trackmania (EWC 2026)',
+    mapPool: ['Track 1', 'Track 2', 'Track 3', 'Track 4', 'Track 5'],
+    vetoMode: 'manual_picks',
+    notes: 'Trackmania: track-based rounds (tracks set per round) — no map veto. Format-only preset; confirm track list and scoring per event R&R.',
   },
 ];
 
