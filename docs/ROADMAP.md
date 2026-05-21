@@ -1,35 +1,46 @@
 # Roadmap
 
-## Phase 1: Multi-Tenant MVP
+## ✅ Shipped
 
-- Postgres + Prisma persistence
-- Guild install and user install command contexts
-- Per-org setup for roles and channels
-- Match creation and live control panel
-- Player-safe match lookup, check-in, evidence, and referee calls
-- Score, pause, warning, and evidence modals for authorized org staff
+**Core platform**
+- Multi-tenant orgs (one Discord guild → one org), with `/org setup` for roles and channels (auto-create supported)
+- Guild-install and user-install command contexts
+- PostgreSQL + Prisma persistence, with migration history
 
-## Phase 2: Tournament Operations
+**Match operations**
+- Match creation and live control panel (`/match-admin create`)
+- Temporary per-match text + voice rooms, with optional team-role access, cleaned up on close
+- Channel transcript archiving to the match-log channel on close
+- Map veto: single final-map ban, series map picks, and manual picks
+- Rules presets: built-in (Generic, Overwatch mode rotation, Valorant) **and** custom per-server presets via `/preset`
 
-- Team roster database
-- Player account linking and admin approval
-- Pause budget ledger per team
-- Infraction thresholds and head-admin escalation
-- Match history view by team/player
-- Transcript export for disputes
+**Refereeing & adjudication**
+- Referee score reporting with screenshot proof + rich match-log embeds (image inline)
+- Optional player score reporting (per match)
+- Warnings, pause logs (with a live "resumes at" timestamp), and rulings (forfeit / DQ / no-show / admin loss / cancelled)
+- Evidence vault with re-hosted (persistent) attachments and multi-player tagging
+- Referee assignment / claim (`/ref`); Call Ref routes only to the assigned referee once claimed
+- Dispute escalation (sets the `DISPUTED` status and alerts referees)
+- Roster submission and review (`/roster`)
+- Searchable per-server rulebook (`/rule`)
+- Referee shifts (`/ref-shift`) and the user-installed referee companion (`/ref-my`)
+- Standalone, matchless logging for external events (`/log`) — saved per referee and retrievable
 
-## Phase 3: API Automation
+**Player companion**
+- Player-safe match lookup, check-in, evidence submission, and referee calls
+- Game-account linking (`/profile`)
 
+## 🔭 Planned
+
+**Automation & integrations**
 - Riot account and roster validation
 - Game result polling after match completion
-- Tournament platform sync
-- Evidence upload mirror to S3/R2/GCS
-- Bracket update webhooks
+- Tournament-platform sync and bracket update webhooks
+- Evidence mirroring to external storage (S3 / R2 / GCS)
 
-## Phase 4: Multi-Org Product
-
-- Per-server configuration dashboard
-- Tenant-safe database schema
-- Audit log and moderation permissions
-- Match templates per title
-- Billing and hosted deployment
+**Operations & scale**
+- Pause-budget ledger per team
+- Infraction thresholds with automatic head-admin escalation
+- Match-history views by team/player
+- Per-server configuration dashboard (web)
+- Billing and hosted multi-org deployment
