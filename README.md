@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/arbiter-banner.png" alt="Arbiter - Discord Esports Referee Bot">
+</p>
+
 # Arbiter
 
 **A Discord referee and tournament-operations bot for esports.**
