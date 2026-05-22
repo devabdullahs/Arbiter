@@ -212,6 +212,28 @@ test('BR team rooms resolve existing roles before creating missing roles', async
   assert.match(router, /Channel errors/);
 });
 
+test('BR modal submit handlers defer before slow logging work', async () => {
+  const router = await readFile(new URL('../src/interactions/router.js', import.meta.url), 'utf8');
+  const handlerNames = [
+    'handleBrResultSubmit',
+    'handleBrAdjustSubmit',
+    'handleBrPauseSubmit',
+    'handleBrWarnSubmit',
+    'handleBrEvidenceSubmit',
+    'handleBrNoteSubmit',
+    'handleBrDisputeSubmit',
+  ];
+
+  for (const name of handlerNames) {
+    const start = router.indexOf(`async function ${name}`);
+    assert.notEqual(start, -1, `${name} should exist`);
+    const next = router.indexOf('\nasync function ', start + 1);
+    const body = router.slice(start, next === -1 ? router.length : next);
+    assert.match(body, /deferReply\(\{ ephemeral: true \}\)/, `${name} should defer immediately`);
+    assert.match(body, /editReply\(/, `${name} should edit the deferred reply`);
+  }
+});
+
 test('referee operations include approval, roster, rule, and reminder workflows', async () => {
   const score = await readFile(new URL('../src/commands/score.js', import.meta.url), 'utf8');
   const roster = await readFile(new URL('../src/commands/roster.js', import.meta.url), 'utf8');

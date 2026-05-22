@@ -69,9 +69,28 @@ const commandMap = new Map(commands.map((command) => [command.data.name, command
 const channelWriteDelayMs = 1_200;
 const permissionWriteDelayMs = 250;
 const messageWriteDelayMs = 500;
+// How many teams to provision in parallel. discord.js's REST queue still enforces
+// Discord's rate limits per route, so this just overlaps independent work safely.
+const BR_ROOM_CONCURRENCY = 4;
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Run an async worker over items with a bounded number of concurrent executions.
+async function runWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  async function runner() {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await worker(items[index], index);
+    }
+  }
+  const poolSize = Math.min(Math.max(limit, 1), items.length || 1);
+  await Promise.all(Array.from({ length: poolSize }, runner));
+  return results;
 }
 
 export async function handleInteraction(interaction) {
@@ -904,8 +923,6 @@ async function ensureBrTeamRole(guild, lobby, team, { createMissing = false } = 
     })
     .catch(() => null);
 
-  if (role) await wait(channelWriteDelayMs);
-
   return role?.id ?? null;
 }
 
@@ -988,36 +1005,32 @@ function brRoomPermissionOverwrites(guild, lobby, team, roleId, refereeId) {
 }
 
 async function syncBrTeamRoomPermissions(guild, lobby, team, channels, refereeId) {
-  const roleId = team.discordRoleId ? (await guild.roles.fetch(team.discordRoleId).catch(() => null))?.id : null;
-  const overwrites = brRoomPermissionOverwrites(guild, lobby, team, roleId, refereeId);
-
-  for (const channel of channels.filter(Boolean)) {
-    for (const overwrite of overwrites) {
-      await channel.permissionOverwrites
-        .edit(overwrite.id, {
-          ViewChannel: overwrite.allow?.includes(PermissionFlagsBits.ViewChannel) ?? false,
-          SendMessages: overwrite.allow?.includes(PermissionFlagsBits.SendMessages) ?? false,
-          AttachFiles: overwrite.allow?.includes(PermissionFlagsBits.AttachFiles) ?? false,
-          ReadMessageHistory: overwrite.allow?.includes(PermissionFlagsBits.ReadMessageHistory) ?? false,
-          Connect: overwrite.allow?.includes(PermissionFlagsBits.Connect) ?? false,
-          Speak: overwrite.allow?.includes(PermissionFlagsBits.Speak) ?? false,
-        })
-        .catch(() => null);
-      await wait(permissionWriteDelayMs);
-    }
-  }
+  // One bulk overwrite set per channel (instead of one edit per permission), run in parallel.
+  const overwrites = brRoomPermissionOverwrites(guild, lobby, team, team.discordRoleId ?? null, refereeId);
+  await Promise.all(
+    channels.filter(Boolean).map((channel) => channel.permissionOverwrites.set(overwrites).catch(() => null)),
+  );
 }
 
 async function createChannelWithReport(guild, options, failures, teamName, channelKind) {
   try {
-    const channel = await guild.channels.create(options);
-    await wait(channelWriteDelayMs);
-    return channel;
+    return await guild.channels.create(options);
   } catch (error) {
     failures.push(`${teamName} ${channelKind}: ${error.message ?? 'unknown error'}`);
-    await wait(channelWriteDelayMs);
     return null;
   }
+}
+
+// Reuse an existing channel (re-syncing its overwrites in one call) or create it fresh.
+async function reuseOrCreateBrChannel(guild, existingId, overwrites, createOptions, failures, teamName, channelKind) {
+  if (existingId) {
+    const existing = await guild.channels.fetch(existingId).catch(() => null);
+    if (existing) {
+      await existing.permissionOverwrites.set(overwrites).catch(() => null);
+      return existing;
+    }
+  }
+  return createChannelWithReport(guild, createOptions, failures, teamName, channelKind);
 }
 
 async function findBrTeamCategory(guild, lobby, team) {
@@ -1100,84 +1113,78 @@ async function createBrTeamRooms(interaction, lobby, { createMissingRoles = fals
     return;
   }
 
-  const roomUpdates = [];
   const failures = [];
   await interaction.guild.channels.fetch().catch(() => null);
 
-  for (const team of workingLobby.teams) {
+  // Provision each team's rooms with bounded parallelism. Channels are created with their
+  // parent and permission overwrites already set, so there are no follow-up moves or
+  // per-permission edits. discord.js's REST queue enforces Discord's rate limits for us.
+  const roomUpdates = await runWithConcurrency(workingLobby.teams, BR_ROOM_CONCURRENCY, async (team) => {
     const roleId = await ensureBrTeamRole(interaction.guild, workingLobby, team, { createMissing: createMissingRoles });
-    const teamCategory = await createOrSyncBrTeamCategory(interaction, workingLobby, team, roleId, failures);
-    const permissionOverwrites = brRoomPermissionOverwrites(interaction.guild, lobby, team, roleId, interaction.user.id);
-    const textChannel =
-      (team.textChannelId ? await interaction.guild.channels.fetch(team.textChannelId).catch(() => null) : null) ??
-      (await createChannelWithReport(
+    const teamWithRole = { ...team, discordRoleId: roleId ?? team.discordRoleId };
+    const overwrites = brRoomPermissionOverwrites(interaction.guild, lobby, team, roleId, interaction.user.id);
+    const teamCategory = await createOrSyncBrTeamCategory(interaction, workingLobby, teamWithRole, roleId, failures);
+    const parentId = teamCategory?.id ?? categoryId;
+
+    const [textChannel, voiceChannel] = await Promise.all([
+      reuseOrCreateBrChannel(
         interaction.guild,
+        team.textChannelId,
+        overwrites,
         {
           name: brTeamChannelName(lobby, team),
           type: ChannelType.GuildText,
-          parent: teamCategory?.id ?? categoryId,
+          parent: parentId,
           topic: `${lobby.name} - ${lobby.publicCode} - ${team.name}${roleId ? ` | role: ${roleId}` : ''}`,
-          permissionOverwrites,
+          permissionOverwrites: overwrites,
         },
         failures,
         team.name,
         'text channel',
-      ));
-
-    const voiceChannel =
-      (team.voiceChannelId ? await interaction.guild.channels.fetch(team.voiceChannelId).catch(() => null) : null) ??
-      (await createChannelWithReport(
+      ),
+      reuseOrCreateBrChannel(
         interaction.guild,
+        team.voiceChannelId,
+        overwrites,
         {
           name: brTeamChannelName(lobby, team, '-vc'),
           type: ChannelType.GuildVoice,
-          parent: teamCategory?.id ?? categoryId,
-          permissionOverwrites,
+          parent: parentId,
+          permissionOverwrites: overwrites,
         },
         failures,
         team.name,
         'voice channel',
-      ));
+      ),
+    ]);
 
-    await moveChannelToBrTeamCategory(textChannel, teamCategory, failures, team.name);
-    await moveChannelToBrTeamCategory(voiceChannel, teamCategory, failures, team.name);
-    await syncBrTeamRoomPermissions(
-      interaction.guild,
-      lobby,
-      { ...team, discordRoleId: roleId ?? team.discordRoleId },
-      [teamCategory, textChannel, voiceChannel],
-      interaction.user.id,
-    );
-
-    roomUpdates.push({
+    return {
       teamId: team.id,
       roleId: roleId ?? team.discordRoleId,
       categoryChannelId: teamCategory?.id ?? team.categoryChannelId,
       textChannelId: textChannel?.id ?? team.textChannelId,
       voiceChannelId: voiceChannel?.id ?? team.voiceChannelId,
       teamMessageId: team.teamMessageId,
-    });
-
-    await wait(channelWriteDelayMs);
-  }
+    };
+  });
 
   let updated = await setBrTeamRooms(workingLobby.publicCode, roomUpdates);
-  const messageUpdates = [];
 
-  for (const team of updated.teams) {
-    const channel = team.textChannelId ? await interaction.guild.channels.fetch(team.textChannelId).catch(() => null) : null;
-    if (!channel?.isTextBased()) continue;
+  const messageUpdates = (
+    await runWithConcurrency(updated.teams, BR_ROOM_CONCURRENCY, async (team) => {
+      const channel = team.textChannelId
+        ? await interaction.guild.channels.fetch(team.textChannelId).catch(() => null)
+        : null;
+      if (!channel?.isTextBased()) return null;
 
-    const existing = team.teamMessageId ? await channel.messages.fetch(team.teamMessageId).catch(() => null) : null;
-    const sent = existing
-      ? await existing.edit(brTeamRoomPayload(updated, team)).catch(() => null)
-      : await channel.send(brTeamRoomPayload(updated, team)).catch(() => null);
+      const existing = team.teamMessageId ? await channel.messages.fetch(team.teamMessageId).catch(() => null) : null;
+      const sent = existing
+        ? await existing.edit(brTeamRoomPayload(updated, team)).catch(() => null)
+        : await channel.send(brTeamRoomPayload(updated, team)).catch(() => null);
 
-    if (sent) {
-      messageUpdates.push({ teamId: team.id, teamMessageId: sent.id });
-    }
-    await wait(messageWriteDelayMs);
-  }
+      return sent ? { teamId: team.id, teamMessageId: sent.id } : null;
+    })
+  ).filter(Boolean);
 
   if (messageUpdates.length) {
     updated = await setBrTeamRooms(updated.publicCode, messageUpdates);
@@ -1335,23 +1342,25 @@ async function handleBrModalSubmit(interaction, parsed) {
 }
 
 async function handleBrResultSubmit(interaction, parsed) {
+  // Defer up front: recording many teams + updating the panel + posting the log embed can
+  // exceed Discord's 3-second interaction window, which would invalidate the token (10062).
+  await interaction.deferReply({ ephemeral: true });
   const [code, gameRaw] = parsed.parts;
   const gameNumber = Number(gameRaw);
   const lobby = await getBrLobby(code);
 
   if (!lobby) {
-    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    await interaction.editReply({ content: 'I could not find that lobby.' });
     return;
   }
 
   const { entries, invalid } = parseResultLines(interaction.fields.getTextInputValue('results'));
 
   if (entries.length === 0) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `No valid result lines found. Use \`TeamName placement kills\` on each line.${
         invalid.length ? `\nUnparsed: ${invalid.slice(0, 5).join(' | ')}` : ''
       }`,
-      ephemeral: true,
     });
     return;
   }
@@ -1379,10 +1388,11 @@ async function handleBrResultSubmit(interaction, parsed) {
   if (invalid.length) embed.addFields({ name: 'Skipped lines', value: String(invalid.length), inline: true });
 
   await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
-  await interaction.reply({ content: summary.join('\n').slice(0, 1900), ephemeral: true });
+  await interaction.editReply({ content: summary.join('\n').slice(0, 1900) });
 }
 
 async function handleBrAdjustSubmit(interaction, parsed) {
+  await interaction.deferReply({ ephemeral: true });
   const [code, teamId] = parsed.parts;
   const lobby = teamId ? await getBrLobby(code) : null;
   const presetTeam = lobby && teamId ? brTeamById(lobby, teamId) : null;
@@ -1392,21 +1402,21 @@ async function handleBrAdjustSubmit(interaction, parsed) {
   const reason = interaction.fields.getTextInputValue('reason');
 
   if (!Number.isInteger(points) || !Number.isInteger(kills)) {
-    await interaction.reply({ content: 'Points and kills must be whole numbers (negative to deduct).', ephemeral: true });
+    await interaction.editReply({ content: 'Points and kills must be whole numbers (negative to deduct).' });
     return;
   }
   if (points === 0 && kills === 0) {
-    await interaction.reply({ content: 'Enter a non-zero point or kill change.', ephemeral: true });
+    await interaction.editReply({ content: 'Enter a non-zero point or kill change.' });
     return;
   }
 
   const result = await addBrAdjustment(code, { teamName, points, kills, reason, byUser: interaction.user });
   if (!result) {
-    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    await interaction.editReply({ content: 'I could not find that lobby.' });
     return;
   }
   if (!result.team) {
-    await interaction.reply({ content: `No team named "${teamName}" in this lobby.`, ephemeral: true });
+    await interaction.editReply({ content: `No team named "${teamName}" in this lobby.` });
     return;
   }
 
@@ -1428,10 +1438,11 @@ async function handleBrAdjustSubmit(interaction, parsed) {
     .setTimestamp();
   await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
   await postBrEmbed(interaction, result.team?.textChannelId, embed);
-  await interaction.reply({ content: `Applied ${points >= 0 ? '+' : ''}${points} pts to ${teamName}.`, ephemeral: true });
+  await interaction.editReply({ content: `Applied ${points >= 0 ? '+' : ''}${points} pts to ${teamName}.` });
 }
 
 async function handleBrPauseSubmit(interaction, parsed) {
+  await interaction.deferReply({ ephemeral: true });
   const [code] = parsed.parts;
   const pauseType = interaction.fields.getTextInputValue('pause_type');
   const teamName = interaction.fields.getTextInputValue('team');
@@ -1439,7 +1450,7 @@ async function handleBrPauseSubmit(interaction, parsed) {
   const reason = interaction.fields.getTextInputValue('reason');
 
   if (!Number.isInteger(durationMinutes) || durationMinutes < 0) {
-    await interaction.reply({ content: 'Duration must be a whole number of minutes.', ephemeral: true });
+    await interaction.editReply({ content: 'Duration must be a whole number of minutes.' });
     return;
   }
 
@@ -1452,7 +1463,7 @@ async function handleBrPauseSubmit(interaction, parsed) {
     byUser: interaction.user,
   });
   if (!result) {
-    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    await interaction.editReply({ content: 'I could not find that lobby.' });
     return;
   }
 
@@ -1472,10 +1483,11 @@ async function handleBrPauseSubmit(interaction, parsed) {
     )
     .setTimestamp();
   await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
-  await interaction.reply({ content: `Pause logged for \`${code}\`.`, ephemeral: true });
+  await interaction.editReply({ content: `Pause logged for \`${code}\`.` });
 }
 
 async function handleBrWarnSubmit(interaction, parsed) {
+  await interaction.deferReply({ ephemeral: true });
   const [code, teamId] = parsed.parts;
   const lobby = teamId ? await getBrLobby(code) : null;
   const presetTeam = lobby && teamId ? brTeamById(lobby, teamId) : null;
@@ -1486,7 +1498,7 @@ async function handleBrWarnSubmit(interaction, parsed) {
 
   const result = await addBrLog(code, { kind: 'warning', teamName, subject, rule, details: note, byUser: interaction.user });
   if (!result) {
-    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    await interaction.editReply({ content: 'I could not find that lobby.' });
     return;
   }
 
@@ -1506,10 +1518,11 @@ async function handleBrWarnSubmit(interaction, parsed) {
     .setTimestamp();
   await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
   await postBrEmbed(interaction, result.team?.textChannelId, embed);
-  await interaction.reply({ content: `Warning logged for ${subject || teamName} (infraction #${count}).`, ephemeral: true });
+  await interaction.editReply({ content: `Warning logged for ${subject || teamName} (infraction #${count}).` });
 }
 
 async function handleBrEvidenceSubmit(interaction, parsed) {
+  await interaction.deferReply({ ephemeral: true });
   const [code, teamId] = parsed.parts;
   const lobby = teamId ? await getBrLobby(code) : null;
   const presetTeam = lobby && teamId ? brTeamById(lobby, teamId) : null;
@@ -1519,7 +1532,7 @@ async function handleBrEvidenceSubmit(interaction, parsed) {
   const file = getUploadedAttachments(interaction, 'evidence_files')[0];
 
   if (!url && !file) {
-    await interaction.reply({ content: 'Add an evidence URL or upload a file.', ephemeral: true });
+    await interaction.editReply({ content: 'Add an evidence URL or upload a file.' });
     return;
   }
 
@@ -1533,7 +1546,7 @@ async function handleBrEvidenceSubmit(interaction, parsed) {
     byUser: interaction.user,
   });
   if (!result) {
-    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    await interaction.editReply({ content: 'I could not find that lobby.' });
     return;
   }
 
@@ -1553,17 +1566,18 @@ async function handleBrEvidenceSubmit(interaction, parsed) {
   const settings = result.lobby.organization?.settings;
   await postBrEmbed(interaction, settings?.evidenceChannelId ?? settings?.matchLogChannelId, embed, file);
   await postBrEmbed(interaction, result.team?.textChannelId, embed, file);
-  await interaction.reply({ content: `Evidence logged for \`${code}\`.`, ephemeral: true });
+  await interaction.editReply({ content: `Evidence logged for \`${code}\`.` });
 }
 
 async function handleBrNoteSubmit(interaction, parsed) {
+  await interaction.deferReply({ ephemeral: true });
   const [code] = parsed.parts;
   const summary = interaction.fields.getTextInputValue('summary');
   const details = interaction.fields.getTextInputValue('details');
 
   const result = await addBrLog(code, { kind: 'note', summary, details, byUser: interaction.user });
   if (!result) {
-    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    await interaction.editReply({ content: 'I could not find that lobby.' });
     return;
   }
 
@@ -1579,10 +1593,11 @@ async function handleBrNoteSubmit(interaction, parsed) {
     )
     .setTimestamp();
   await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
-  await interaction.reply({ content: `Note saved for \`${code}\`.`, ephemeral: true });
+  await interaction.editReply({ content: `Note saved for \`${code}\`.` });
 }
 
 async function handleBrDisputeSubmit(interaction, parsed) {
+  await interaction.deferReply({ ephemeral: true });
   const [code, teamId] = parsed.parts;
   const lobby = teamId ? await getBrLobby(code) : null;
   const presetTeam = lobby && teamId ? brTeamById(lobby, teamId) : null;
@@ -1590,7 +1605,7 @@ async function handleBrDisputeSubmit(interaction, parsed) {
   const reason = interaction.fields.getTextInputValue('reason');
 
   if (!Number.isInteger(gameNumber) || gameNumber < 1) {
-    await interaction.reply({ content: 'Game number must be a whole number.', ephemeral: true });
+    await interaction.editReply({ content: 'Game number must be a whole number.' });
     return;
   }
 
@@ -1604,7 +1619,7 @@ async function handleBrDisputeSubmit(interaction, parsed) {
     byUser: interaction.user,
   });
   if (!result) {
-    await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    await interaction.editReply({ content: 'I could not find that lobby.' });
     return;
   }
 
@@ -1622,7 +1637,7 @@ async function handleBrDisputeSubmit(interaction, parsed) {
     .setTimestamp();
   await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
   await postBrEmbed(interaction, result.team?.textChannelId, embed);
-  await interaction.reply({ content: `Dispute logged for game ${gameNumber} of \`${code}\`.`, ephemeral: true });
+  await interaction.editReply({ content: `Dispute logged for game ${gameNumber} of \`${code}\`.` });
 }
 
 function getUploadedAttachments(interaction, customInputId) {
@@ -2246,6 +2261,15 @@ async function cleanupBrTeamRooms(interaction, lobby) {
       }, 5_000);
     } else {
       await channel.delete(`BR lobby ${lobby.publicCode} closed`).catch(() => null);
+    }
+  }
+
+  // Remove the now-empty per-team categories (their channels were deleted above).
+  for (const team of lobby.teams ?? []) {
+    if (!team.categoryChannelId) continue;
+    const category = await interaction.guild.channels.fetch(team.categoryChannelId).catch(() => null);
+    if (category?.type === ChannelType.GuildCategory) {
+      await category.delete(`BR lobby ${lobby.publicCode} closed`).catch(() => null);
     }
   }
 }
