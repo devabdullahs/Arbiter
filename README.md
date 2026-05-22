@@ -309,6 +309,10 @@ BR control-board buttons:
 |---|---|
 | ![Team history output](docs/images/history-team.png) | ![Player history output](docs/images/history-player.png) |
 
+| Battle-royale lobby setup | Battle-royale live standings |
+|---|---|
+| ![BR lobby setup](docs/images/br-lobby-pending.png) | ![BR live standings](docs/images/br-lobby-game-1.png) |
+
 ---
 
 ## Architecture
