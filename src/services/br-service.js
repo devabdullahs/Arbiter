@@ -29,6 +29,42 @@ export function parseTeamList(raw) {
     });
 }
 
+function roleIdFromValue(value) {
+  return value?.match(/\d{15,25}/)?.[0] ?? null;
+}
+
+export function parseTeamRoleMappings(raw, teamNames) {
+  if (!raw) return new Map();
+
+  const mappings = new Map();
+  const ordered = teamNames.map((name) => name.toLowerCase());
+  const entries = raw
+    .split(/[\n,]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  for (const [index, entry] of entries.entries()) {
+    const separatorIndex = entry.indexOf('=');
+
+    if (separatorIndex === -1) {
+      const teamName = teamNames[index];
+      const roleId = roleIdFromValue(entry);
+      if (teamName && roleId) mappings.set(teamName.toLowerCase(), roleId);
+      continue;
+    }
+
+    const teamName = entry.slice(0, separatorIndex).trim();
+    const roleId = roleIdFromValue(entry.slice(separatorIndex + 1));
+
+    if (!teamName || !roleId) continue;
+
+    const key = ordered.find((name) => name === teamName.toLowerCase());
+    if (key) mappings.set(key, roleId);
+  }
+
+  return mappings;
+}
+
 export function parsePlacementPoints(raw) {
   if (!raw) return null;
   const values = raw
@@ -77,6 +113,7 @@ export function pointsFor(placement, kills, placementPoints, killPoints) {
 export async function createBrLobby(input) {
   const actor = input.createdByUser ? await ensureUserProfile(input.createdByUser) : null;
   const teams = parseTeamList(input.teamsRaw ?? '');
+  const roleMappings = parseTeamRoleMappings(input.teamRolesRaw, teams);
 
   if (teams.length < 2) {
     throw new Error('Add at least two teams (one per line or comma-separated).');
@@ -93,7 +130,13 @@ export async function createBrLobby(input) {
       gamesPlanned: input.gamesPlanned ?? 6,
       killPoints: input.killPoints ?? defaultBrKillPoints,
       placementPoints: input.placementPoints ?? defaultBrPlacementPoints,
-      teams: { create: teams.map((name, index) => ({ name, seed: index + 1 })) },
+      teams: {
+        create: teams.map((name, index) => ({
+          name,
+          seed: index + 1,
+          discordRoleId: roleMappings.get(name.toLowerCase()) ?? null,
+        })),
+      },
     },
     include: brInclude,
   });
@@ -165,6 +208,34 @@ export async function setBrControlMessage(code, { messageId, channelId }) {
   return prisma.brLobby.update({
     where: { id: lobby.id },
     data: { controlMessageId: messageId, channelId: channelId ?? lobby.channelId },
+  });
+}
+
+export async function setBrTeamRooms(code, rooms) {
+  const lobby = await getBrLobby(code);
+  if (!lobby) return null;
+
+  await prisma.$transaction(
+    rooms.map((room) =>
+      prisma.brTeam.update({
+        where: { id: room.teamId },
+        data: {
+          discordRoleId: room.roleId ?? undefined,
+          textChannelId: room.textChannelId ?? undefined,
+          voiceChannelId: room.voiceChannelId ?? undefined,
+          teamMessageId: room.teamMessageId ?? undefined,
+        },
+      }),
+    ),
+  );
+
+  return getBrLobby(code);
+}
+
+export async function setBrTeamMessage(teamId, messageId) {
+  return prisma.brTeam.update({
+    where: { id: teamId },
+    data: { teamMessageId: messageId },
   });
 }
 

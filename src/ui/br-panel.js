@@ -49,6 +49,20 @@ function operationsSummary(lobby) {
   return parts.length ? parts.join(' | ') : 'No referee actions logged yet.';
 }
 
+function teamOperationsSummary(lobby, team) {
+  const logs = (lobby.logs ?? []).filter((log) => log.brTeamId === team.id);
+  const warningCount = logs.filter((log) => log.kind === 'warning').length;
+  const disputeCount = logs.filter((log) => log.kind === 'dispute').length;
+  const evidenceCount = logs.filter((log) => log.kind === 'evidence').length;
+  const parts = [
+    warningCount ? `${warningCount} warning${warningCount === 1 ? '' : 's'}` : null,
+    disputeCount ? `${disputeCount} dispute${disputeCount === 1 ? '' : 's'}` : null,
+    evidenceCount ? `${evidenceCount} evidence item${evidenceCount === 1 ? '' : 's'}` : null,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(' | ') : 'No team-specific referee logs yet.';
+}
+
 function standingsText(lobby) {
   const standings = computeBrStandings(lobby);
 
@@ -65,6 +79,17 @@ function standingsText(lobby) {
     .join('\n');
 }
 
+function teamStandingText(lobby, team) {
+  const standings = computeBrStandings(lobby);
+  const index = standings.findIndex((entry) => entry.id === team.id);
+  const standing = standings[index];
+
+  if (!standing) return 'No score recorded yet.';
+
+  const adjustment = standing.adjust ? ` (${standing.adjust > 0 ? '+' : ''}${standing.adjust} adjustment)` : '';
+  return `${rankLabel(index)} ${standing.points} pts | ${standing.kills} kills | ${standing.games}/${lobby.gamesPlanned}${adjustment}`;
+}
+
 function summaryText(lobby) {
   const played = gamesPlayed(lobby);
   const status = String(lobby.status).toLowerCase();
@@ -77,6 +102,18 @@ function summaryText(lobby) {
     `**Status:** ${status}`,
     `**Teams:** ${lobby.teams.length}`,
     `**Games:** ${played}/${lobby.gamesPlanned}${closed}`,
+  ].join('\n');
+}
+
+function teamRoomSummaryText(lobby, team) {
+  const role = team.discordRoleId ? `\n**Team role:** <@&${team.discordRoleId}>` : '\n**Team role:** not linked yet';
+  const voice = team.voiceChannelId ? `\n**Voice:** <#${team.voiceChannelId}>` : '';
+
+  return [
+    `## ${team.name}`,
+    `**Lobby:** \`${lobby.publicCode}\` - ${lobby.name}`,
+    `**Game:** ${lobby.game}`,
+    `**Status:** ${String(lobby.status).toLowerCase()}${role}${voice}`,
   ].join('\n');
 }
 
@@ -110,6 +147,7 @@ export function brStandingsPayload(lobby, ephemeral = false) {
       .addActionRowComponents((row) =>
         row.setComponents(
           brButton('br-note', lobby.publicCode, 'Note', ButtonStyle.Secondary),
+          brButton('br-rooms', lobby.publicCode, 'Team Rooms', ButtonStyle.Primary),
           brButton('br-dispute', lobby.publicCode, 'Dispute', ButtonStyle.Danger),
           brButton('br-callref', lobby.publicCode, 'Call Ref', ButtonStyle.Secondary),
           brButton('br-close', lobby.publicCode, 'Close', ButtonStyle.Danger),
@@ -122,6 +160,47 @@ export function brStandingsPayload(lobby, ephemeral = false) {
     embeds: null,
     components: [container],
     flags: ephemeral ? MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral : MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: [] },
+  };
+}
+
+export function brTeamRoomPayload(lobby, team) {
+  const container = new ContainerBuilder()
+    .setAccentColor(panelColor(lobby))
+    .addTextDisplayComponents((text) => text.setContent(teamRoomSummaryText(lobby, team)))
+    .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
+    .addTextDisplayComponents((text) => text.setContent(`**Current standing**\n${teamStandingText(lobby, team)}`))
+    .addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
+    .addTextDisplayComponents((text) =>
+      text.setContent(
+        `**Team referee log**\n${teamOperationsSummary(lobby, team)}\n-# Coaches and players can use these buttons to call a referee, submit evidence, or open a dispute for this lobby.`,
+      ),
+    );
+
+  if (!isComplete(lobby)) {
+    container.addActionRowComponents((row) =>
+      row.setComponents(
+        new ButtonBuilder()
+          .setCustomId(customId('br-team-callref', lobby.publicCode, team.id))
+          .setLabel('Call Ref')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(customId('br-team-evidence', lobby.publicCode, team.id))
+          .setLabel('Evidence')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(customId('br-team-dispute', lobby.publicCode, team.id))
+          .setLabel('Dispute')
+          .setStyle(ButtonStyle.Danger),
+      ),
+    );
+  }
+
+  return {
+    content: null,
+    embeds: null,
+    components: [container],
+    flags: MessageFlags.IsComponentsV2,
     allowedMentions: { parse: [] },
   };
 }

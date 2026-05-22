@@ -43,7 +43,19 @@ export const brCommand = {
               .setName('placement_points')
               .setDescription('Custom placement points, comma-separated for 1st, 2nd, … (default ALGS-style)')
               .setMaxLength(300),
+          )
+          .addStringOption((option) =>
+            option
+              .setName('team_roles')
+              .setDescription('Optional role map: Team=<@&role>, one per line/comma; or roles in team order')
+              .setMaxLength(1500),
           ),
+      )
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('rooms')
+          .setDescription('Create or sync private text and voice rooms for every BR team.')
+          .addStringOption((option) => option.setName('lobby').setDescription('Lobby code').setRequired(true).setMaxLength(12)),
       )
       .addSubcommand((subcommand) =>
         subcommand
@@ -92,6 +104,7 @@ export const brCommand = {
           gamesPlanned: interaction.options.getInteger('games') ?? undefined,
           killPoints: interaction.options.getInteger('kill_points') ?? undefined,
           placementPoints: placementPoints ?? undefined,
+          teamRolesRaw: interaction.options.getString('team_roles') ?? undefined,
           createdByUser: interaction.user,
         });
       } catch (error) {
@@ -104,6 +117,21 @@ export const brCommand = {
       await setBrControlMessage(lobby.publicCode, {
         messageId: reply.id,
         channelId: reply.channelId ?? interaction.channelId,
+      });
+      return;
+    }
+
+    if (subcommand === 'rooms') {
+      const lobby = await getBrLobby(interaction.options.getString('lobby', true));
+
+      if (!lobby || lobby.organizationId !== organization.id) {
+        await interaction.reply({ content: 'I could not find that lobby in this org.', ephemeral: true });
+        return;
+      }
+
+      await interaction.reply({
+        content: `Open the BR control panel for \`${lobby.publicCode}\` and press **Team Rooms**. This keeps room creation attached to the main referee panel.`,
+        ephemeral: true,
       });
       return;
     }

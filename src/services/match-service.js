@@ -47,6 +47,9 @@ const matchInclude = {
   vetoActions: { orderBy: { createdAt: 'asc' } },
   room: true,
   rosterSubmissions: true,
+  warnings: { orderBy: { createdAt: 'asc' } },
+  pauseLogs: { orderBy: { createdAt: 'asc' } },
+  evidence: { orderBy: { createdAt: 'asc' } },
 };
 
 export async function createMatch(input) {
@@ -277,6 +280,29 @@ export async function setMatchLive(matchCode, room) {
   return toMatchView(updated);
 }
 
+export async function setMatchRoom(matchCode, room) {
+  const record = await getMatchRecord(matchCode);
+
+  if (!record) {
+    return null;
+  }
+
+  const updated = await prisma.match.update({
+    where: { id: record.id },
+    data: {
+      room: {
+        upsert: {
+          create: room,
+          update: room,
+        },
+      },
+    },
+    include: matchInclude,
+  });
+
+  return toMatchView(updated);
+}
+
 export async function setControlMessage(matchCode, message) {
   const record = await getMatchRecord(matchCode);
 
@@ -289,6 +315,25 @@ export async function setControlMessage(matchCode, message) {
     data: {
       controlMessageId: message.messageId,
       channelId: message.channelId ?? record.channelId,
+    },
+    include: matchInclude,
+  });
+
+  return toMatchView(updated);
+}
+
+export async function setMatchTeamRoles(matchCode, roles) {
+  const record = await getMatchRecord(matchCode);
+
+  if (!record) {
+    return null;
+  }
+
+  const updated = await prisma.match.update({
+    where: { id: record.id },
+    data: {
+      teamARoleId: roles.teamARoleId ?? record.teamARoleId,
+      teamBRoleId: roles.teamBRoleId ?? record.teamBRoleId,
     },
     include: matchInclude,
   });
@@ -310,6 +355,37 @@ export async function setPlayerMessage(matchCode, messageId) {
         upsert: {
           create: { playerMessageId: messageId },
           update: { playerMessageId: messageId },
+        },
+      },
+    },
+    include: matchInclude,
+  });
+
+  return toMatchView(updated);
+}
+
+export async function setTeamRoomMessages(matchCode, messages) {
+  const record = await getMatchRecord(matchCode);
+
+  if (!record) {
+    return null;
+  }
+
+  const data = {};
+  if (messages.teamAMessageId) data.teamAMessageId = messages.teamAMessageId;
+  if (messages.teamBMessageId) data.teamBMessageId = messages.teamBMessageId;
+
+  if (Object.keys(data).length === 0) {
+    return toMatchView(record);
+  }
+
+  const updated = await prisma.match.update({
+    where: { id: record.id },
+    data: {
+      room: {
+        upsert: {
+          create: data,
+          update: data,
         },
       },
     },
@@ -444,6 +520,7 @@ export async function logWarning(matchCode, input) {
       data: {
         organizationId: record.organizationId,
         matchId: record.id,
+        teamName: input.teamName || null,
         player: input.player,
         rule: input.rule,
         note: input.note,
@@ -473,6 +550,7 @@ export async function logWarning(matchCode, input) {
         metadata: {
           player: input.player,
           playerDiscordId: input.playerDiscordId,
+          teamName: input.teamName,
           rule: input.rule,
           note: input.note,
           attachments: input.attachments ?? [],

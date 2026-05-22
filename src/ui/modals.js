@@ -69,11 +69,23 @@ export function disputeModal(match) {
     );
 }
 
+export function teamDisputeModal(match, teamSlot) {
+  const teamName = teamSlot === 'team_a' ? match.teamA : match.teamB;
+  return new ModalBuilder()
+    .setCustomId(customId('team-dispute-submit', match.id, teamSlot))
+    .setTitle(`Dispute ${match.id}`)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`${teamName} - ${match.teamA} vs ${match.teamB}`))
+    .addLabelComponents(
+      paragraphLabel('What is being disputed?', 'reason', 'Score, ruling, technical issue, rule violation, etc.'),
+    );
+}
+
 export function warnModal(match) {
   return new ModalBuilder()
     .setCustomId(customId('warn-submit', match.id))
     .setTitle(`Warning ${match.id}`)
     .addLabelComponents(
+      shortLabel('Team / target', 'team', `${match.teamA}, ${match.teamB}, or leave blank if player-only`, false),
       shortLabel('Player', 'player', 'Discord mention, Riot ID, Steam ID, or nickname'),
       shortLabel('Rule violation', 'rule', 'Rule code or short violation name'),
       paragraphLabel('Notes', 'note', 'Context for admins reviewing the warning', false),
@@ -97,6 +109,21 @@ export function evidenceModal(match) {
   return new ModalBuilder()
     .setCustomId(customId('evidence-submit', match.id))
     .setTitle(`Evidence ${match.id}`)
+    .addLabelComponents(
+      userLabel('Related players', 'player_user', 'Tag the Discord player(s) this evidence is about (optional)'),
+      shortLabel('Other player IDs', 'player_text', 'Riot/Steam IDs or nicknames if not in this server', false),
+      shortLabel('Evidence URL', 'url', 'Discord CDN, Drive, S3, or external evidence link', false),
+      paragraphLabel('Notes', 'note', 'What the evidence shows', false),
+      fileUploadLabel('Evidence upload', 'evidence_files', 'Optional direct upload from your device', false, 3),
+    );
+}
+
+export function teamEvidenceModal(match, teamSlot) {
+  const teamName = teamSlot === 'team_a' ? match.teamA : match.teamB;
+  return new ModalBuilder()
+    .setCustomId(customId('team-evidence-submit', match.id, teamSlot))
+    .setTitle(`Evidence ${match.id}`)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`${teamName} - ${match.teamA} vs ${match.teamB}`))
     .addLabelComponents(
       userLabel('Related players', 'player_user', 'Tag the Discord player(s) this evidence is about (optional)'),
       shortLabel('Other player IDs', 'player_text', 'Riot/Steam IDs or nicknames if not in this server', false),
@@ -147,15 +174,15 @@ function brScoreboardTemplate(lobby) {
     .slice(0, 1000);
 }
 
-export function brAdjustModal(lobby) {
+export function brAdjustModal(lobby, team) {
   return new ModalBuilder()
-    .setCustomId(customId('br-adjust-submit', lobby.publicCode))
+    .setCustomId(customId('br-adjust-submit', lobby.publicCode, team?.id))
     .setTitle(`Adjust - ${lobby.publicCode}`)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(`${lobby.name}: point/kill adjustment. Use negative numbers to deduct (penalty).`),
     )
     .addLabelComponents(
-      shortLabel('Team', 'team', 'Exact team name from the lobby'),
+      shortLabel('Team', 'team', 'Exact team name from the lobby', true, team?.name),
       shortLabel('Points', 'points', 'Point change, e.g. -10 or 5 (blank = 0)', false),
       shortLabel('Kills', 'kills', 'Kill change, e.g. -3 (blank = 0)', false),
       paragraphLabel('Reason', 'reason', 'Why the adjustment/penalty was applied'),
@@ -174,24 +201,24 @@ export function brPauseModal(lobby) {
     );
 }
 
-export function brWarnModal(lobby) {
+export function brWarnModal(lobby, team) {
   return new ModalBuilder()
-    .setCustomId(customId('br-warn-submit', lobby.publicCode))
+    .setCustomId(customId('br-warn-submit', lobby.publicCode, team?.id))
     .setTitle(`Warn - ${lobby.publicCode}`)
     .addLabelComponents(
       shortLabel('Player / subject', 'subject', 'Player or team being warned'),
-      shortLabel('Team', 'team', 'Team name from the lobby (for infraction tracking)', false),
+      shortLabel('Team', 'team', 'Team name from the lobby (for infraction tracking)', false, team?.name),
       shortLabel('Rule violation', 'rule', 'Rule code or short violation name'),
       paragraphLabel('Notes', 'note', 'Context for admins reviewing the warning', false),
     );
 }
 
-export function brEvidenceModal(lobby) {
+export function brEvidenceModal(lobby, team) {
   return new ModalBuilder()
-    .setCustomId(customId('br-evidence-submit', lobby.publicCode))
+    .setCustomId(customId('br-evidence-submit', lobby.publicCode, team?.id))
     .setTitle(`Evidence - ${lobby.publicCode}`)
     .addLabelComponents(
-      shortLabel('Team / subject', 'team', 'Team or player the evidence concerns', false),
+      shortLabel('Team / subject', 'team', 'Team or player the evidence concerns', false, team?.name),
       shortLabel('Evidence URL', 'url', 'Link to a screenshot or clip', false),
       paragraphLabel('Notes', 'note', 'What the evidence shows', false),
       fileUploadLabel('Upload', 'evidence_files', 'Optional direct upload', false, 3),
@@ -208,27 +235,37 @@ export function brNoteModal(lobby) {
     );
 }
 
-export function brDisputeModal(lobby) {
+export function brDisputeModal(lobby, team) {
   return new ModalBuilder()
-    .setCustomId(customId('br-dispute-submit', lobby.publicCode))
+    .setCustomId(customId('br-dispute-submit', lobby.publicCode, team?.id))
     .setTitle(`Dispute - ${lobby.publicCode}`)
     .addLabelComponents(
       numberLabel('Game number', 'game', 'Which game is disputed'),
-      paragraphLabel('Reason', 'reason', 'What is being disputed and why'),
+      paragraphLabel(
+        'Reason',
+        'reason',
+        'What is being disputed and why',
+        true,
+        team ? `${team.name}: ` : undefined,
+      ),
     );
 }
 
-function shortLabel(label, customInputId, description, required = true) {
+function shortLabel(label, customInputId, description, required = true, value) {
+  const input = new TextInputBuilder()
+    .setCustomId(customInputId)
+    .setStyle(TextInputStyle.Short)
+    .setRequired(required)
+    .setMaxLength(200);
+
+  if (value) {
+    input.setValue(value);
+  }
+
   return new LabelBuilder()
     .setLabel(label)
     .setDescription(description)
-    .setTextInputComponent(
-      new TextInputBuilder()
-        .setCustomId(customInputId)
-        .setStyle(TextInputStyle.Short)
-        .setRequired(required)
-        .setMaxLength(200),
-    );
+    .setTextInputComponent(input);
 }
 
 function paragraphLabel(label, customInputId, description, required = true, value) {

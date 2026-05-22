@@ -23,6 +23,8 @@ configured org server **and** as a user-installed companion app for referees wor
   Pause, Warn, Evidence, Ruling, Dispute, Claim, Call Ref, and Close.
 - Temporary per-match text + voice rooms, auto-created under a configured category and cleaned up on close.
 - Optional **team-role room access**: pass a Discord role per team and the match room grants those members access.
+- Private **team rooms**: create one text + voice room per team, associate each room to the team's role,
+  and give coaches/players their own Call Ref, Evidence, Dispute, and optional Report Score controls.
 - **Channel transcript archiving** — when a match closes, the room's text and voice-chat history is saved
   to the match-log channel as a `.txt` transcript before the channels are deleted.
 
@@ -166,6 +168,10 @@ npm run dev          # watch mode (or: npm start)
 | Pause ledger | Warning summary |
 |---|---|
 | ![Pause ledger output](docs/images/pause-ledger.png) | ![Warning summary output](docs/images/warn-summary.png) |
+
+| Team-room controls | Player/coaches team room |
+|---|---|
+| ![Team room controls](docs/images/match-team-rooms-panel.png) | ![Player team room panel](docs/images/match-team-room-player-panel.png) |
 
 | Team history | Player history |
 |---|---|

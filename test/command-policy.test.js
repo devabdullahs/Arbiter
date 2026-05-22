@@ -181,6 +181,23 @@ test('match messages are tracked and refreshed after reports', async () => {
   assert.match(updater, /playerMessageId/);
 });
 
+test('match team rooms expose player-safe team controls and cleanup', async () => {
+  const panel = await readFile(new URL('../src/ui/match-panel.js', import.meta.url), 'utf8');
+  const router = await readFile(new URL('../src/interactions/router.js', import.meta.url), 'utf8');
+  const service = await readFile(new URL('../src/services/match-service.js', import.meta.url), 'utf8');
+  const schema = await readFile(new URL('../prisma/schema.prisma', import.meta.url), 'utf8');
+
+  assert.match(panel, /teamMatchPayload/);
+  assert.match(panel, /team-call-ref/);
+  assert.match(panel, /team-evidence-modal/);
+  assert.match(panel, /team-dispute-modal/);
+  assert.match(router, /createOrSyncMatchTeamRooms/);
+  assert.match(router, /teamATextChannelId/);
+  assert.match(router, /archiveMatchChannel/);
+  assert.match(service, /setTeamRoomMessages/);
+  assert.match(schema, /teamName\s+String\?/);
+});
+
 test('referee operations include approval, roster, rule, and reminder workflows', async () => {
   const score = await readFile(new URL('../src/commands/score.js', import.meta.url), 'utf8');
   const roster = await readFile(new URL('../src/commands/roster.js', import.meta.url), 'utf8');

@@ -112,6 +112,7 @@ export function matchPanelPayload(match, ephemeral = false, options = {}) {
         row.setComponents(
           button('start-veto', match.id, 'Start Veto', ButtonStyle.Primary),
           button('start-room', match.id, 'Start Match', ButtonStyle.Success),
+          button('team-rooms', match.id, 'Team Rooms', ButtonStyle.Primary),
           button('score-modal', match.id, 'Report Score', ButtonStyle.Secondary),
           button('close-match', match.id, 'Close', ButtonStyle.Danger),
         ),
@@ -180,6 +181,55 @@ export function playerMatchPayload(match) {
   };
 }
 
+export function teamMatchPayload(match, teamSlot) {
+  const teamName = teamSlot === 'team_a' ? match.teamA : match.teamB;
+  const opponentName = teamSlot === 'team_a' ? match.teamB : match.teamA;
+  const roleId = teamSlot === 'team_a' ? match.teamARoleId : match.teamBRoleId;
+  const voiceChannelId = teamSlot === 'team_a' ? match.room?.teamAVoiceChannelId : match.room?.teamBVoiceChannelId;
+  const currentMap = getCurrentMap(match);
+  const roleLine = roleId ? `\n**Team role:** <@&${roleId}>` : '\n**Team role:** not linked';
+  const voiceLine = voiceChannelId ? `\n**Voice:** <#${voiceChannelId}>` : '';
+  const warningText = teamWarningSummary(match, teamName);
+  const evidenceText = teamEvidenceSummary(match, teamName);
+  const pauseText = teamPauseSummary(match, teamName);
+  const content = [
+    `## ${teamName}`,
+    `**Match:** \`${match.id}\` vs **${opponentName}**`,
+    `**Status:** ${match.status}`,
+    `**Score:** ${match.score.teamA} - ${match.score.teamB}`,
+    `**Current map:** ${currentMap}${roleLine}${voiceLine}`,
+    '',
+    `**Team log**`,
+    warningText,
+    evidenceText,
+    pauseText,
+    '-# Coaches and players can call a referee, submit evidence, or open a dispute from this room.',
+  ].join('\n');
+
+  const buttons = [
+    button('team-call-ref', match.id, 'Call Ref', ButtonStyle.Secondary, teamSlot),
+    button('team-evidence-modal', match.id, 'Evidence', ButtonStyle.Secondary, teamSlot),
+    button('team-dispute-modal', match.id, 'Dispute', ButtonStyle.Danger, teamSlot),
+  ];
+
+  if (match.allowPlayerReports) {
+    buttons.unshift(button('team-score-report-modal', match.id, 'Report Score', ButtonStyle.Primary, teamSlot));
+  }
+
+  const container = new ContainerBuilder()
+    .setAccentColor(statusColor(match.status))
+    .addTextDisplayComponents((text) => text.setContent(content))
+    .addActionRowComponents((row) => row.setComponents(...buttons));
+
+  return {
+    content: null,
+    embeds: null,
+    components: [container],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: [] },
+  };
+}
+
 export function vetoPanelPayload(match, ephemeral = false) {
   const remaining = getRemainingMaps(match);
   const options = remaining.slice(0, 25).map((map) =>
@@ -215,9 +265,9 @@ export function vetoPanelPayload(match, ephemeral = false) {
   };
 }
 
-export function roomPickerPayload(match) {
+export function roomPickerPayload(match, action = 'room-category') {
   const select = new ChannelSelectMenuBuilder()
-    .setCustomId(customId('room-category', match.id))
+    .setCustomId(customId(action, match.id))
     .setPlaceholder('Pick a category for temporary match channels')
     .setChannelTypes(ChannelType.GuildCategory);
 
@@ -235,8 +285,8 @@ export function roomPickerPayload(match) {
   };
 }
 
-function button(action, matchId, label, style) {
-  return new ButtonBuilder().setCustomId(customId(action, matchId)).setLabel(label).setStyle(style);
+function button(action, matchId, label, style, ...parts) {
+  return new ButtonBuilder().setCustomId(customId(action, matchId, ...parts)).setLabel(label).setStyle(style);
 }
 
 function formatVetoMode(vetoMode) {
@@ -265,6 +315,30 @@ function formatTeamRoles(match) {
   if (match.teamARoleId) roles.push(`${match.teamA}: <@&${match.teamARoleId}>`);
   if (match.teamBRoleId) roles.push(`${match.teamB}: <@&${match.teamBRoleId}>`);
   return roles.length ? `\n**Team roles:** ${roles.join(' | ')}` : '';
+}
+
+function teamWarningSummary(match, teamName) {
+  const warnings = (match.warnings ?? []).filter((warning) => sameTeam(warning.teamName, teamName));
+  if (!warnings.length) return '- Warnings: none';
+
+  return `- Warnings: ${warnings.length} (${warnings
+    .slice(-3)
+    .map((warning) => `${warning.player}: ${warning.rule}`)
+    .join(' | ')})`;
+}
+
+function teamEvidenceSummary(match, teamName) {
+  const evidence = (match.evidence ?? []).filter((item) => item.note?.toLowerCase().includes(teamName.toLowerCase()));
+  return evidence.length ? `- Evidence items: ${evidence.length}` : '- Evidence items: none';
+}
+
+function teamPauseSummary(match, teamName) {
+  const pauses = (match.pauseLogs ?? []).filter((pause) => sameTeam(pause.teamName, teamName));
+  return pauses.length ? `- Pauses: ${pauses.length}` : '- Pauses: none';
+}
+
+function sameTeam(value, teamName) {
+  return value?.trim().toLowerCase() === teamName.trim().toLowerCase();
 }
 
 function mapNameOf(entry) {

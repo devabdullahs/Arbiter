@@ -92,15 +92,19 @@ model BrLobby {
 }
 
 model BrTeam {
-  id          String         @id @default(cuid())
-  lobbyId     String
-  name        String
-  seed        Int?
-  lobby       BrLobby        @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
-  results     BrGameResult[]
-  adjustments BrAdjustment[]
-  logs        BrLog[]
-  createdAt   DateTime       @default(now())
+  id             String         @id @default(cuid())
+  lobbyId        String
+  name           String
+  seed           Int?
+  discordRoleId  String?
+  textChannelId  String?
+  voiceChannelId String?
+  teamMessageId  String?
+  lobby          BrLobby        @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  results        BrGameResult[]
+  adjustments    BrAdjustment[]
+  logs           BrLog[]
+  createdAt      DateTime       @default(now())
 
   @@unique([lobbyId, name])
   @@index([lobbyId])
@@ -395,6 +399,7 @@ model Warning {
   id             String       @id @default(cuid())
   organizationId String
   matchId        String
+  teamName       String?
   player         String
   rule           String
   note           String?
@@ -506,15 +511,21 @@ model RulebookEntry {
 }
 
 model MatchRoom {
-  id              String   @id @default(cuid())
-  matchId         String   @unique
-  textChannelId   String?
-  voiceChannelId  String?
-  categoryId      String?
-  playerMessageId String?
-  match           Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  matchId             String   @unique
+  textChannelId       String?
+  voiceChannelId      String?
+  categoryId          String?
+  playerMessageId     String?
+  teamATextChannelId  String?
+  teamAVoiceChannelId String?
+  teamAMessageId      String?
+  teamBTextChannelId  String?
+  teamBVoiceChannelId String?
+  teamBMessageId      String?
+  match               Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model AuditLog {

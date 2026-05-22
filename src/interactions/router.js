@@ -13,10 +13,13 @@ import {
   logWarning,
   reviewEvidence,
   setControlMessage,
+  setMatchTeamRoles,
   setMatchDisputed,
   setMatchLive,
   setMatchReferee,
+  setMatchRoom,
   setPlayerMessage,
+  setTeamRoomMessages,
   startVeto,
 } from '../services/match-service.js';
 import { createPauseReminder } from '../services/reminder-service.js';
@@ -37,9 +40,10 @@ import {
   getBrLobby,
   parseResultLines,
   recordBrResults,
+  setBrTeamRooms,
 } from '../services/br-service.js';
-import { brStandingsPayload } from '../ui/br-panel.js';
-import { matchPanelPayload, playerMatchPayload, roomPickerPayload, vetoPanelPayload } from '../ui/match-panel.js';
+import { brStandingsPayload, brTeamRoomPayload } from '../ui/br-panel.js';
+import { matchPanelPayload, playerMatchPayload, roomPickerPayload, teamMatchPayload, vetoPanelPayload } from '../ui/match-panel.js';
 import {
   brAdjustModal,
   brDisputeModal,
@@ -54,6 +58,8 @@ import {
   rulingModal,
   scoreModal,
   scoreReportModal,
+  teamDisputeModal,
+  teamEvidenceModal,
   warnModal,
 } from '../ui/modals.js';
 import { customId, parseCustomId } from '../utils/custom-id.js';
@@ -120,6 +126,11 @@ async function handleComponentInteraction(interaction) {
     return;
   }
 
+  if (parsed.action.startsWith('team-')) {
+    await handleMatchTeamComponent(interaction, parsed, match);
+    return;
+  }
+
   if (parsed.action === 'call-ref') {
     await callReferees(interaction, match);
     return;
@@ -179,8 +190,31 @@ async function handleComponentInteraction(interaction) {
     return;
   }
 
+  if (parsed.action === 'team-rooms') {
+    await rememberControlMessage(interaction, match);
+
+    if (!interaction.guildId || interaction.guildId !== match.guildId) {
+      await interaction.reply({ content: 'Team rooms can only be created inside the configured org server.', ephemeral: true });
+      return;
+    }
+
+    const categoryId = match.settings?.matchCategoryId;
+    if (!categoryId) {
+      await interaction.reply(roomPickerPayload(match, 'team-room-category'));
+      return;
+    }
+
+    await createMatchTeamRooms(interaction, match, categoryId);
+    return;
+  }
+
   if (parsed.action === 'room-category') {
     await createMatchRoom(interaction, match, interaction.values[0]);
+    return;
+  }
+
+  if (parsed.action === 'team-room-category') {
+    await createMatchTeamRooms(interaction, match, interaction.values[0]);
     return;
   }
 
@@ -273,6 +307,63 @@ async function handleModalSubmit(interaction) {
 
   if (!match) {
     await interaction.reply({ content: 'I could not find that match.', ephemeral: true });
+    return;
+  }
+
+  if (parsed.action === 'team-evidence-submit') {
+    const [teamSlot] = parsed.parts.slice(1);
+    const teamName = matchTeamName(match, teamSlot);
+    const attachments = getUploadedAttachments(interaction, 'evidence_files');
+    const urls = [interaction.fields.getTextInputValue('url'), ...attachments.map((attachment) => attachment.url)].filter(Boolean);
+    let updated = match;
+
+    if (urls.length === 0) {
+      await interaction.reply({ content: 'Add an evidence URL or upload at least one evidence file.', ephemeral: true });
+      return;
+    }
+
+    const pickedPlayers = getSelectedUsersList(interaction, 'player_user');
+    const playerText = getTextInputSafe(interaction, 'player_text').trim();
+    const playerLabel = [
+      ...pickedPlayers.map((user) => `${user.tag ?? user.username} (${user.id})`),
+      ...(playerText ? [playerText] : []),
+    ].join(', ');
+    const note = [`[Team: ${teamName}]`, playerLabel ? `[Players: ${playerLabel}]` : null, interaction.fields.getTextInputValue('note')]
+      .filter(Boolean)
+      .join(' ');
+    const evidenceIds = [];
+
+    for (const url of urls) {
+      const result = await addEvidence(match.id, {
+        url,
+        note,
+        byUser: interaction.user,
+      });
+      updated = result.match;
+      evidenceIds.push(result.evidence.id);
+    }
+
+    await interaction.reply({ content: `Evidence logged for ${teamName}.`, ephemeral: true });
+    await updateMatchMessages(interaction.client, updated);
+    await logToEvidenceVault(interaction, updated, {
+      label: 'Team evidence',
+      note,
+      player: playerLabel,
+      attachments,
+      urls: [interaction.fields.getTextInputValue('url')].filter(Boolean),
+      evidenceId: evidenceIds[0],
+    });
+    return;
+  }
+
+  if (parsed.action === 'team-dispute-submit') {
+    const [teamSlot] = parsed.parts.slice(1);
+    const teamName = matchTeamName(match, teamSlot);
+    const reason = `[${teamName}] ${interaction.fields.getTextInputValue('reason')}`;
+    const updated = await setMatchDisputed(match.id, reason, interaction.user);
+    await interaction.reply({ content: `Dispute logged for ${teamName}.`, ephemeral: true });
+    await updateMatchMessages(interaction.client, updated);
+    await alertReferees(interaction, updated, `🚨 Dispute raised by **${teamName}** on \`${updated.id}\`: ${reason}`);
     return;
   }
 
@@ -501,7 +592,9 @@ async function handleModalSubmit(interaction) {
   }
 
   if (parsed.action === 'warn-submit') {
+    const teamName = getTextInputSafe(interaction, 'team').trim();
     const { match: updated, infraction } = await logWarning(match.id, {
+      teamName,
       player: interaction.fields.getTextInputValue('player'),
       rule: interaction.fields.getTextInputValue('rule'),
       note: interaction.fields.getTextInputValue('note'),
@@ -517,6 +610,7 @@ async function handleModalSubmit(interaction) {
       attachments: getUploadedAttachments(interaction, 'warning_files'),
     });
     await logToChannel(interaction, updated, buildWarningEmbed(updated, {
+      teamName,
       player: interaction.fields.getTextInputValue('player'),
       rule: interaction.fields.getTextInputValue('rule'),
       note: interaction.fields.getTextInputValue('note'),
@@ -664,11 +758,31 @@ async function brCanManage(interaction, lobby) {
 }
 
 async function updateBrPanel(interaction, lobby) {
-  if (!lobby?.controlMessageId || !lobby?.channelId) return;
-  const channel = await interaction.client.channels.fetch(lobby.channelId).catch(() => null);
+  if (lobby?.controlMessageId && lobby?.channelId) {
+    const channel = await interaction.client.channels.fetch(lobby.channelId).catch(() => null);
+    if (channel?.isTextBased()) {
+      const message = await channel.messages.fetch(lobby.controlMessageId).catch(() => null);
+      await message?.edit(brStandingsPayload(lobby)).catch(() => null);
+    }
+  }
+
+  await updateBrTeamMessages(interaction, lobby);
+}
+
+async function updateBrTeamMessages(interaction, lobby) {
+  for (const team of lobby?.teams ?? []) {
+    await updateBrTeamMessage(interaction, lobby, team);
+  }
+}
+
+async function updateBrTeamMessage(interaction, lobby, team) {
+  if (!team?.textChannelId || !team?.teamMessageId) return;
+
+  const channel = await interaction.client.channels.fetch(team.textChannelId).catch(() => null);
   if (!channel?.isTextBased()) return;
-  const message = await channel.messages.fetch(lobby.controlMessageId).catch(() => null);
-  await message?.edit(brStandingsPayload(lobby)).catch(() => null);
+
+  const message = await channel.messages.fetch(team.teamMessageId).catch(() => null);
+  await message?.edit(brTeamRoomPayload(lobby, team)).catch(() => null);
 }
 
 async function postBrEmbed(interaction, channelId, embed, file) {
@@ -702,7 +816,7 @@ function brStandingsText(lobby) {
     .slice(0, 4000);
 }
 
-async function brCallReferees(interaction, lobby) {
+async function brCallReferees(interaction, lobby, team) {
   const onShiftIds = await getOnShiftRefereeIds(lobby.organizationId);
   const mentions = onShiftIds.map((id) => `<@${id}>`);
   const refereeRoleId = lobby.organization?.settings?.refereeRoleId;
@@ -714,9 +828,234 @@ async function brCallReferees(interaction, lobby) {
   }
 
   await interaction.reply({
-    content: `${mentions.join(' ')} referee requested for BR lobby \`${lobby.publicCode}\` (${lobby.name}).`,
+    content: `${mentions.join(' ')} referee requested for BR lobby \`${lobby.publicCode}\` (${lobby.name})${
+      team ? ` by **${team.name}**` : ''
+    }.`,
     allowedMentions: { users: onShiftIds, roles: refereeRoleId && interaction.guildId ? [refereeRoleId] : [] },
   });
+}
+
+function brTeamById(lobby, teamId) {
+  return lobby.teams.find((team) => team.id === teamId) ?? null;
+}
+
+function brTeamChannelName(lobby, team, suffix = '') {
+  const slug = team.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 32);
+  return `br-${lobby.publicCode.toLowerCase()}-${slug || 'team'}${suffix}`.slice(0, 90);
+}
+
+async function ensureBrTeamRole(guild, lobby, team) {
+  if (team.discordRoleId) {
+    const existing = await guild.roles.fetch(team.discordRoleId).catch(() => null);
+    if (existing) return existing.id;
+  }
+
+  const roleName = `[${lobby.publicCode}] ${team.name}`.slice(0, 100);
+  const cached = guild.roles.cache.find((role) => role.name === roleName);
+  if (cached) return cached.id;
+
+  if (!guild.members.me?.permissions.has(PermissionFlagsBits.ManageRoles)) {
+    return null;
+  }
+
+  const role = await guild.roles
+    .create({
+      name: roleName,
+      mentionable: false,
+      reason: `BR team room access for ${lobby.publicCode}`,
+    })
+    .catch(() => null);
+
+  return role?.id ?? null;
+}
+
+function brRoomPermissionOverwrites(guild, lobby, team, roleId, refereeId) {
+  const overwrites = [
+    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+    {
+      id: refereeId,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.AttachFiles,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.Connect,
+        PermissionFlagsBits.Speak,
+      ],
+    },
+  ];
+
+  for (const role of [lobby.organization?.settings?.adminRoleId, lobby.organization?.settings?.refereeRoleId, roleId].filter(Boolean)) {
+    overwrites.push({
+      id: role,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.AttachFiles,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.Connect,
+        PermissionFlagsBits.Speak,
+      ],
+    });
+  }
+
+  return overwrites;
+}
+
+async function syncBrTeamRoomPermissions(guild, lobby, team, channels, refereeId) {
+  const roleId = team.discordRoleId ? (await guild.roles.fetch(team.discordRoleId).catch(() => null))?.id : null;
+  const overwrites = brRoomPermissionOverwrites(guild, lobby, team, roleId, refereeId);
+
+  for (const channel of channels.filter(Boolean)) {
+    for (const overwrite of overwrites) {
+      await channel.permissionOverwrites
+        .edit(overwrite.id, {
+          ViewChannel: overwrite.allow?.includes(PermissionFlagsBits.ViewChannel) ?? false,
+          SendMessages: overwrite.allow?.includes(PermissionFlagsBits.SendMessages) ?? false,
+          AttachFiles: overwrite.allow?.includes(PermissionFlagsBits.AttachFiles) ?? false,
+          ReadMessageHistory: overwrite.allow?.includes(PermissionFlagsBits.ReadMessageHistory) ?? false,
+          Connect: overwrite.allow?.includes(PermissionFlagsBits.Connect) ?? false,
+          Speak: overwrite.allow?.includes(PermissionFlagsBits.Speak) ?? false,
+        })
+        .catch(() => null);
+    }
+  }
+}
+
+async function createBrTeamRooms(interaction, lobby) {
+  if (!interaction.guild) {
+    await interaction.reply({ content: 'BR team rooms can only be created inside the org server.', ephemeral: true });
+    return;
+  }
+
+  const categoryId = lobby.organization?.settings?.matchCategoryId;
+  if (!categoryId) {
+    await interaction.reply({ content: 'Configure a match category with `/org setup` before creating BR team rooms.', ephemeral: true });
+    return;
+  }
+
+  if (!interaction.guild.members.me?.permissions.has(PermissionFlagsBits.ManageChannels)) {
+    await interaction.reply({ content: 'I need Manage Channels permission to create BR team rooms.', ephemeral: true });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const roomUpdates = [];
+
+  for (const team of lobby.teams) {
+    const roleId = await ensureBrTeamRole(interaction.guild, lobby, team);
+    const permissionOverwrites = brRoomPermissionOverwrites(interaction.guild, lobby, team, roleId, interaction.user.id);
+    const textChannel =
+      (team.textChannelId ? await interaction.guild.channels.fetch(team.textChannelId).catch(() => null) : null) ??
+      (await interaction.guild.channels
+        .create({
+          name: brTeamChannelName(lobby, team),
+          type: ChannelType.GuildText,
+          parent: categoryId,
+          topic: `${lobby.name} - ${lobby.publicCode} - ${team.name}${roleId ? ` | role: ${roleId}` : ''}`,
+          permissionOverwrites,
+        })
+        .catch(() => null));
+
+    const voiceChannel =
+      (team.voiceChannelId ? await interaction.guild.channels.fetch(team.voiceChannelId).catch(() => null) : null) ??
+      (await interaction.guild.channels
+        .create({
+          name: brTeamChannelName(lobby, team, '-vc'),
+          type: ChannelType.GuildVoice,
+          parent: categoryId,
+          permissionOverwrites,
+        })
+        .catch(() => null));
+
+    await syncBrTeamRoomPermissions(
+      interaction.guild,
+      lobby,
+      { ...team, discordRoleId: roleId ?? team.discordRoleId },
+      [textChannel, voiceChannel],
+      interaction.user.id,
+    );
+
+    roomUpdates.push({
+      teamId: team.id,
+      roleId: roleId ?? team.discordRoleId,
+      textChannelId: textChannel?.id ?? team.textChannelId,
+      voiceChannelId: voiceChannel?.id ?? team.voiceChannelId,
+      teamMessageId: team.teamMessageId,
+    });
+  }
+
+  let updated = await setBrTeamRooms(lobby.publicCode, roomUpdates);
+  const messageUpdates = [];
+
+  for (const team of updated.teams) {
+    const channel = team.textChannelId ? await interaction.guild.channels.fetch(team.textChannelId).catch(() => null) : null;
+    if (!channel?.isTextBased()) continue;
+
+    const existing = team.teamMessageId ? await channel.messages.fetch(team.teamMessageId).catch(() => null) : null;
+    const sent = existing
+      ? await existing.edit(brTeamRoomPayload(updated, team)).catch(() => null)
+      : await channel.send(brTeamRoomPayload(updated, team)).catch(() => null);
+
+    if (sent) {
+      messageUpdates.push({ teamId: team.id, teamMessageId: sent.id });
+    }
+  }
+
+  if (messageUpdates.length) {
+    updated = await setBrTeamRooms(updated.publicCode, messageUpdates);
+  }
+
+  await updateBrPanel(interaction, updated);
+
+  const createdCount = updated.teams.filter((team) => team.textChannelId || team.voiceChannelId).length;
+  const missingRoles = updated.teams.filter((team) => !team.discordRoleId).map((team) => team.name);
+
+  await interaction.editReply({
+    content: [
+      `BR team rooms synced for \`${updated.publicCode}\`: ${createdCount}/${updated.teams.length} teams.`,
+      missingRoles.length ? `No role could be created/linked for: ${missingRoles.join(', ')}.` : null,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  });
+}
+
+async function handleBrTeamComponent(interaction, parsed, lobby) {
+  const [, teamId] = parsed.parts;
+  const team = brTeamById(lobby, teamId);
+
+  if (!team) {
+    await interaction.reply({ content: 'I could not find that team in this lobby.', ephemeral: true });
+    return;
+  }
+
+  const inTeamRoom = team.textChannelId && interaction.channelId === team.textChannelId;
+  const canManage = await brCanManage(interaction, lobby);
+
+  if (!inTeamRoom && !canManage) {
+    await interaction.reply({ content: 'Use this from the team room or ask a referee to help.', ephemeral: true });
+    return;
+  }
+
+  switch (parsed.action) {
+    case 'br-team-callref':
+      await brCallReferees(interaction, lobby, team);
+      return;
+    case 'br-team-evidence':
+      await interaction.showModal(brEvidenceModal(lobby, team));
+      return;
+    case 'br-team-dispute':
+      await interaction.showModal(brDisputeModal(lobby, team));
+      return;
+    default:
+      return;
+  }
 }
 
 async function handleBrComponent(interaction, parsed) {
@@ -725,6 +1064,11 @@ async function handleBrComponent(interaction, parsed) {
 
   if (!lobby) {
     await interaction.reply({ content: 'I could not find that lobby.', ephemeral: true });
+    return;
+  }
+
+  if (parsed.action.startsWith('br-team-')) {
+    await handleBrTeamComponent(interaction, parsed, lobby);
     return;
   }
 
@@ -752,6 +1096,9 @@ async function handleBrComponent(interaction, parsed) {
     case 'br-note':
       await interaction.showModal(brNoteModal(lobby));
       return;
+    case 'br-rooms':
+      await createBrTeamRooms(interaction, lobby);
+      return;
     case 'br-dispute':
       await interaction.showModal(brDisputeModal(lobby));
       return;
@@ -772,6 +1119,7 @@ async function handleBrComponent(interaction, parsed) {
         )
         .setTimestamp();
       await postBrEmbed(interaction, updated.organization?.settings?.matchLogChannelId, embed);
+      await cleanupBrTeamRooms(interaction, updated);
       return;
     }
     default:
@@ -849,8 +1197,10 @@ async function handleBrResultSubmit(interaction, parsed) {
 }
 
 async function handleBrAdjustSubmit(interaction, parsed) {
-  const [code] = parsed.parts;
-  const teamName = interaction.fields.getTextInputValue('team');
+  const [code, teamId] = parsed.parts;
+  const lobby = teamId ? await getBrLobby(code) : null;
+  const presetTeam = lobby && teamId ? brTeamById(lobby, teamId) : null;
+  const teamName = interaction.fields.getTextInputValue('team') || presetTeam?.name;
   const points = Number(interaction.fields.getTextInputValue('points') || '0');
   const kills = Number(interaction.fields.getTextInputValue('kills') || '0');
   const reason = interaction.fields.getTextInputValue('reason');
@@ -891,6 +1241,7 @@ async function handleBrAdjustSubmit(interaction, parsed) {
     )
     .setTimestamp();
   await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
+  await postBrEmbed(interaction, result.team?.textChannelId, embed);
   await interaction.reply({ content: `Applied ${points >= 0 ? '+' : ''}${points} pts to ${teamName}.`, ephemeral: true });
 }
 
@@ -939,9 +1290,11 @@ async function handleBrPauseSubmit(interaction, parsed) {
 }
 
 async function handleBrWarnSubmit(interaction, parsed) {
-  const [code] = parsed.parts;
+  const [code, teamId] = parsed.parts;
+  const lobby = teamId ? await getBrLobby(code) : null;
+  const presetTeam = lobby && teamId ? brTeamById(lobby, teamId) : null;
   const subject = interaction.fields.getTextInputValue('subject');
-  const teamName = interaction.fields.getTextInputValue('team');
+  const teamName = interaction.fields.getTextInputValue('team') || presetTeam?.name;
   const rule = interaction.fields.getTextInputValue('rule');
   const note = interaction.fields.getTextInputValue('note');
 
@@ -966,12 +1319,15 @@ async function handleBrWarnSubmit(interaction, parsed) {
     )
     .setTimestamp();
   await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
+  await postBrEmbed(interaction, result.team?.textChannelId, embed);
   await interaction.reply({ content: `Warning logged for ${subject || teamName} (infraction #${count}).`, ephemeral: true });
 }
 
 async function handleBrEvidenceSubmit(interaction, parsed) {
-  const [code] = parsed.parts;
-  const teamName = interaction.fields.getTextInputValue('team');
+  const [code, teamId] = parsed.parts;
+  const lobby = teamId ? await getBrLobby(code) : null;
+  const presetTeam = lobby && teamId ? brTeamById(lobby, teamId) : null;
+  const teamName = interaction.fields.getTextInputValue('team') || presetTeam?.name;
   const url = interaction.fields.getTextInputValue('url');
   const note = interaction.fields.getTextInputValue('note');
   const file = getUploadedAttachments(interaction, 'evidence_files')[0];
@@ -1010,6 +1366,7 @@ async function handleBrEvidenceSubmit(interaction, parsed) {
 
   const settings = result.lobby.organization?.settings;
   await postBrEmbed(interaction, settings?.evidenceChannelId ?? settings?.matchLogChannelId, embed, file);
+  await postBrEmbed(interaction, result.team?.textChannelId, embed, file);
   await interaction.reply({ content: `Evidence logged for \`${code}\`.`, ephemeral: true });
 }
 
@@ -1040,7 +1397,9 @@ async function handleBrNoteSubmit(interaction, parsed) {
 }
 
 async function handleBrDisputeSubmit(interaction, parsed) {
-  const [code] = parsed.parts;
+  const [code, teamId] = parsed.parts;
+  const lobby = teamId ? await getBrLobby(code) : null;
+  const presetTeam = lobby && teamId ? brTeamById(lobby, teamId) : null;
   const gameNumber = Number(interaction.fields.getTextInputValue('game'));
   const reason = interaction.fields.getTextInputValue('reason');
 
@@ -1051,8 +1410,10 @@ async function handleBrDisputeSubmit(interaction, parsed) {
 
   const result = await addBrLog(code, {
     kind: 'dispute',
+    teamName: presetTeam?.name,
+    subject: presetTeam?.name,
     gameNumber,
-    summary: `Game ${gameNumber} disputed`,
+    summary: `${presetTeam ? `${presetTeam.name} - ` : ''}Game ${gameNumber} disputed`,
     details: reason,
     byUser: interaction.user,
   });
@@ -1068,11 +1429,13 @@ async function handleBrDisputeSubmit(interaction, parsed) {
     .addFields(
       { name: 'Lobby', value: `\`${code}\``, inline: true },
       { name: 'Game', value: String(gameNumber), inline: true },
+      ...(result.team ? [{ name: 'Team', value: result.team.name, inline: true }] : []),
       { name: 'Reason', value: reason || '—', inline: false },
       { name: 'By', value: `<@${interaction.user.id}>`, inline: true },
     )
     .setTimestamp();
   await postBrEmbed(interaction, result.lobby.organization?.settings?.matchLogChannelId, embed);
+  await postBrEmbed(interaction, result.team?.textChannelId, embed);
   await interaction.reply({ content: `Dispute logged for game ${gameNumber} of \`${code}\`.`, ephemeral: true });
 }
 
@@ -1119,6 +1482,260 @@ async function maybeNotifyPlayer(interaction, playerId, notify, payload) {
   return sendPlayerNotice(player, payload);
 }
 
+function matchTeamName(match, teamSlot) {
+  return teamSlot === 'team_a' ? match.teamA : match.teamB;
+}
+
+function matchTeamTextChannelId(match, teamSlot) {
+  return teamSlot === 'team_a' ? match.room?.teamATextChannelId : match.room?.teamBTextChannelId;
+}
+
+async function handleMatchTeamComponent(interaction, parsed, match) {
+  const [teamSlot = ''] = parsed.parts.slice(1);
+  const validTeamSlot = teamSlot === 'team_a' || teamSlot === 'team_b';
+
+  if (!validTeamSlot) {
+    await interaction.reply({ content: 'I could not identify that team room.', ephemeral: true });
+    return;
+  }
+
+  const inTeamRoom = matchTeamTextChannelId(match, teamSlot) === interaction.channelId;
+  const canManage = await canManageMatch(interaction, match);
+
+  if (!inTeamRoom && !canManage) {
+    await interaction.reply({ content: 'Use this from your team room or ask a referee to help.', ephemeral: true });
+    return;
+  }
+
+  if (parsed.action === 'team-call-ref') {
+    await callReferees(interaction, match, matchTeamName(match, teamSlot));
+    return;
+  }
+
+  if (parsed.action === 'team-evidence-modal') {
+    await interaction.showModal(teamEvidenceModal(match, teamSlot));
+    return;
+  }
+
+  if (parsed.action === 'team-dispute-modal') {
+    await interaction.showModal(teamDisputeModal(match, teamSlot));
+    return;
+  }
+
+  if (parsed.action === 'team-score-report-modal') {
+    if (!match.allowPlayerReports && !canManage) {
+      await interaction.reply({ content: 'Player score reporting is turned off for this match.', ephemeral: true });
+      return;
+    }
+
+    await interaction.showModal(scoreReportModal(match, 'none', false, 'match'));
+  }
+}
+
+function teamRoleId(match, teamSlot) {
+  return teamSlot === 'team_a' ? match.teamARoleId : match.teamBRoleId;
+}
+
+function teamVoiceChannelId(match, teamSlot) {
+  return teamSlot === 'team_a' ? match.room?.teamAVoiceChannelId : match.room?.teamBVoiceChannelId;
+}
+
+function matchTeamChannelName(match, teamSlot, suffix = '') {
+  const team = matchTeamName(match, teamSlot)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 32);
+
+  return `match-${match.id.toLowerCase()}-${teamSlot === 'team_a' ? 'a' : 'b'}-${team || 'team'}${suffix}`.slice(0, 90);
+}
+
+async function ensureMatchTeamRole(guild, match, teamSlot) {
+  const existingRoleId = teamRoleId(match, teamSlot);
+  if (existingRoleId) {
+    const existing = await guild.roles.fetch(existingRoleId).catch(() => null);
+    if (existing) return existing.id;
+  }
+
+  if (!guild.members.me?.permissions.has(PermissionFlagsBits.ManageRoles)) {
+    return null;
+  }
+
+  const roleName = `[${match.id}] ${matchTeamName(match, teamSlot)}`.slice(0, 100);
+  const cached = guild.roles.cache.find((role) => role.name === roleName);
+  if (cached) return cached.id;
+
+  const role = await guild.roles
+    .create({
+      name: roleName,
+      mentionable: false,
+      reason: `Match team room access for ${match.id}`,
+    })
+    .catch(() => null);
+
+  return role?.id ?? null;
+}
+
+function baseRoomAllows() {
+  return [
+    PermissionFlagsBits.ViewChannel,
+    PermissionFlagsBits.SendMessages,
+    PermissionFlagsBits.AttachFiles,
+    PermissionFlagsBits.ReadMessageHistory,
+    PermissionFlagsBits.Connect,
+    PermissionFlagsBits.Speak,
+  ];
+}
+
+function teamRoomPermissionOverwrites(guild, match, teamSlot, roleId, refereeId) {
+  const overwrites = [
+    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+    { id: refereeId, allow: baseRoomAllows() },
+  ];
+
+  for (const role of [match.settings?.adminRoleId, match.settings?.refereeRoleId, roleId].filter(Boolean)) {
+    overwrites.push({ id: role, allow: baseRoomAllows() });
+  }
+
+  return overwrites;
+}
+
+async function syncTeamRoomPermissions(guild, match, teamSlot, channels, refereeId) {
+  const roleId = teamRoleId(match, teamSlot);
+  const overwrites = teamRoomPermissionOverwrites(guild, match, teamSlot, roleId, refereeId);
+
+  for (const channel of channels.filter(Boolean)) {
+    for (const overwrite of overwrites) {
+      await channel.permissionOverwrites
+        .edit(overwrite.id, {
+          ViewChannel: overwrite.allow?.includes(PermissionFlagsBits.ViewChannel) ?? false,
+          SendMessages: overwrite.allow?.includes(PermissionFlagsBits.SendMessages) ?? false,
+          AttachFiles: overwrite.allow?.includes(PermissionFlagsBits.AttachFiles) ?? false,
+          ReadMessageHistory: overwrite.allow?.includes(PermissionFlagsBits.ReadMessageHistory) ?? false,
+          Connect: overwrite.allow?.includes(PermissionFlagsBits.Connect) ?? false,
+          Speak: overwrite.allow?.includes(PermissionFlagsBits.Speak) ?? false,
+        })
+        .catch(() => null);
+    }
+  }
+}
+
+async function createOrSyncTeamRoom(interaction, match, categoryId, teamSlot) {
+  const roleId = await ensureMatchTeamRole(interaction.guild, match, teamSlot);
+  const matchWithRole = {
+    ...match,
+    teamARoleId: teamSlot === 'team_a' ? roleId ?? match.teamARoleId : match.teamARoleId,
+    teamBRoleId: teamSlot === 'team_b' ? roleId ?? match.teamBRoleId : match.teamBRoleId,
+  };
+  const permissionOverwrites = teamRoomPermissionOverwrites(interaction.guild, matchWithRole, teamSlot, roleId, interaction.user.id);
+  const existingTextId = matchTeamTextChannelId(match, teamSlot);
+  const existingVoiceId = teamVoiceChannelId(match, teamSlot);
+  const textChannel =
+    (existingTextId ? await interaction.guild.channels.fetch(existingTextId).catch(() => null) : null) ??
+    (await interaction.guild.channels
+      .create({
+        name: matchTeamChannelName(match, teamSlot),
+        type: ChannelType.GuildText,
+        parent: categoryId,
+        topic: `${match.teamA} vs ${match.teamB} - ${match.id} - ${matchTeamName(match, teamSlot)}${roleId ? ` | role: ${roleId}` : ''}`,
+        permissionOverwrites,
+      })
+      .catch(() => null));
+  const voiceChannel =
+    (existingVoiceId ? await interaction.guild.channels.fetch(existingVoiceId).catch(() => null) : null) ??
+    (await interaction.guild.channels
+      .create({
+        name: matchTeamChannelName(match, teamSlot, '-vc'),
+        type: ChannelType.GuildVoice,
+        parent: categoryId,
+        permissionOverwrites,
+      })
+      .catch(() => null));
+
+  await syncTeamRoomPermissions(interaction.guild, matchWithRole, teamSlot, [textChannel, voiceChannel], interaction.user.id);
+
+  return {
+    roleId,
+    textChannelId: textChannel?.id ?? existingTextId,
+    voiceChannelId: voiceChannel?.id ?? existingVoiceId,
+  };
+}
+
+async function createOrSyncMatchTeamRooms(interaction, match, categoryId, { markLive = false } = {}) {
+  if (!interaction.guild.members.me?.permissions.has(PermissionFlagsBits.ManageChannels)) {
+    throw new Error('I need Manage Channels permission to create team rooms.');
+  }
+
+  const teamA = await createOrSyncTeamRoom(interaction, match, categoryId, 'team_a');
+  const teamB = await createOrSyncTeamRoom(interaction, match, categoryId, 'team_b');
+  let updated = await setMatchTeamRoles(match.id, {
+    teamARoleId: teamA.roleId ?? match.teamARoleId,
+    teamBRoleId: teamB.roleId ?? match.teamBRoleId,
+  });
+
+  const persistRoom = markLive ? setMatchLive : setMatchRoom;
+  updated = await persistRoom(updated.id, {
+    textChannelId: updated.room?.textChannelId ?? match.room?.textChannelId,
+    voiceChannelId: updated.room?.voiceChannelId ?? match.room?.voiceChannelId,
+    playerMessageId: updated.room?.playerMessageId ?? match.room?.playerMessageId,
+    categoryId,
+    teamATextChannelId: teamA.textChannelId,
+    teamAVoiceChannelId: teamA.voiceChannelId,
+    teamAMessageId: updated.room?.teamAMessageId ?? match.room?.teamAMessageId,
+    teamBTextChannelId: teamB.textChannelId,
+    teamBVoiceChannelId: teamB.voiceChannelId,
+    teamBMessageId: updated.room?.teamBMessageId ?? match.room?.teamBMessageId,
+  });
+
+  const messageUpdates = {};
+
+  for (const teamSlot of ['team_a', 'team_b']) {
+    const channelId = matchTeamTextChannelId(updated, teamSlot);
+    const messageId = teamSlot === 'team_a' ? updated.room?.teamAMessageId : updated.room?.teamBMessageId;
+    const channel = channelId ? await interaction.guild.channels.fetch(channelId).catch(() => null) : null;
+    if (!channel?.isTextBased()) continue;
+
+    const existing = messageId ? await channel.messages.fetch(messageId).catch(() => null) : null;
+    const sent = existing
+      ? await existing.edit(teamMatchPayload(updated, teamSlot)).catch(() => null)
+      : await channel.send(teamMatchPayload(updated, teamSlot)).catch(() => null);
+
+    if (sent) {
+      if (teamSlot === 'team_a') messageUpdates.teamAMessageId = sent.id;
+      if (teamSlot === 'team_b') messageUpdates.teamBMessageId = sent.id;
+    }
+  }
+
+  if (Object.keys(messageUpdates).length) {
+    updated = await setTeamRoomMessages(updated.id, messageUpdates);
+  }
+
+  return updated;
+}
+
+async function createMatchTeamRooms(interaction, match, categoryId) {
+  if (!interaction.guild) {
+    await interaction.reply({ content: 'Team rooms can only be created in a Discord server.', ephemeral: true });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  let updated;
+  try {
+    updated = await createOrSyncMatchTeamRooms(interaction, match, categoryId);
+  } catch (error) {
+    await interaction.editReply({ content: error.message });
+    return;
+  }
+
+  await interaction.message?.edit(matchPanelPayload(updated)).catch(() => null);
+  await updateMatchMessages(interaction.client, updated);
+  await interaction.editReply({
+    content: `Team rooms synced for \`${updated.id}\`: <#${updated.room?.teamATextChannelId}> / <#${updated.room?.teamBTextChannelId}>`,
+  });
+}
+
 async function createMatchRoom(interaction, match, categoryId) {
   if (!interaction.guild) {
     await interaction.reply({ content: 'Match rooms can only be created in a Discord server.', ephemeral: true });
@@ -1136,21 +1753,23 @@ async function createMatchRoom(interaction, match, categoryId) {
 
   if (existingTextChannel || existingVoiceChannel) {
     await syncMatchRoomPermissions(match, [existingTextChannel, existingVoiceChannel]);
+    let updated = match;
 
     if (existingTextChannel && !match.room?.playerMessageId) {
       const sent = await existingTextChannel.send(playerMatchPayload(match)).catch(() => null);
 
       if (sent) {
-        const updated = await setPlayerMessage(match.id, sent.id);
-        await updateMatchMessages(interaction.client, updated);
+        updated = await setPlayerMessage(match.id, sent.id);
       }
-    } else {
-      await updateMatchMessages(interaction.client, match);
     }
+
+    updated = await createOrSyncMatchTeamRooms(interaction, updated, categoryId, { markLive: true }).catch(() => updated);
+    await syncMatchRoomPermissions(updated, [existingTextChannel, existingVoiceChannel]);
+    await updateMatchMessages(interaction.client, updated);
 
     const roomReference = existingTextChannel ?? existingVoiceChannel;
     await interaction.reply({
-      content: `Match room already exists: ${roomReference}`,
+      content: `Match room already exists: ${roomReference}. Team rooms are synced.`,
       ephemeral: true,
     });
     return;
@@ -1214,15 +1833,17 @@ async function createMatchRoom(interaction, match, categoryId) {
 
   const playerMessage = await textChannel.send(playerMatchPayload(updated));
   const refreshed = await setPlayerMessage(updated.id, playerMessage.id);
-  await interaction.message?.edit(matchPanelPayload(refreshed)).catch(() => null);
-  await updateMatchMessages(interaction.client, refreshed);
+  const withTeamRooms = await createOrSyncMatchTeamRooms(interaction, refreshed, categoryId, { markLive: true }).catch(() => refreshed);
+  await syncMatchRoomPermissions(withTeamRooms, [textChannel, voiceChannel]);
+  await interaction.message?.edit(matchPanelPayload(withTeamRooms)).catch(() => null);
+  await updateMatchMessages(interaction.client, withTeamRooms);
 
   if (interaction.deferred || interaction.replied) {
-    await interaction.followUp({ content: `Match room created: ${textChannel}`, ephemeral: true });
+    await interaction.followUp({ content: `Match room created: ${textChannel}; team rooms synced.`, ephemeral: true });
   } else if (interaction.isChannelSelectMenu()) {
-    await interaction.update(matchPanelPayload(refreshed, true));
+    await interaction.update(matchPanelPayload(withTeamRooms, true));
   } else {
-    await interaction.reply({ content: `Match room created: ${textChannel}`, ephemeral: true });
+    await interaction.reply({ content: `Match room created: ${textChannel}; team rooms synced.`, ephemeral: true });
   }
 }
 
@@ -1288,6 +1909,10 @@ async function cleanupMatchRoom(interaction, match) {
   const targets = [
     { id: match.room?.voiceChannelId, label: 'Voice channel chat' },
     { id: match.room?.textChannelId, label: 'Match text channel' },
+    { id: match.room?.teamAVoiceChannelId, label: `${match.teamA} voice channel` },
+    { id: match.room?.teamATextChannelId, label: `${match.teamA} team channel` },
+    { id: match.room?.teamBVoiceChannelId, label: `${match.teamB} voice channel` },
+    { id: match.room?.teamBTextChannelId, label: `${match.teamB} team channel` },
   ].filter((target) => target.id);
 
   for (const target of targets) {
@@ -1402,7 +2027,81 @@ async function archiveMatchChannel(interaction, match, channel, label) {
     .catch(() => null);
 }
 
-async function callReferees(interaction, match) {
+async function cleanupBrTeamRooms(interaction, lobby) {
+  if (!interaction.guild) return;
+
+  const targets = [];
+  for (const team of lobby.teams ?? []) {
+    if (team.voiceChannelId) targets.push({ id: team.voiceChannelId, label: `${team.name} voice channel`, team });
+    if (team.textChannelId) targets.push({ id: team.textChannelId, label: `${team.name} team channel`, team });
+  }
+
+  for (const target of targets) {
+    const channel = await interaction.guild.channels.fetch(target.id).catch(() => null);
+    if (!channel) continue;
+
+    await archiveBrChannel(interaction, lobby, target.team, channel, target.label);
+
+    if (target.id === interaction.channelId) {
+      setTimeout(() => {
+        channel.delete(`BR lobby ${lobby.publicCode} closed`).catch(() => null);
+      }, 5_000);
+    } else {
+      await channel.delete(`BR lobby ${lobby.publicCode} closed`).catch(() => null);
+    }
+  }
+}
+
+async function archiveBrChannel(interaction, lobby, team, channel, label) {
+  if (!channel?.isTextBased?.() || !lobby.organization?.settings?.matchLogChannelId) {
+    return;
+  }
+
+  const logChannel = await interaction.client.channels.fetch(lobby.organization.settings.matchLogChannelId).catch(() => null);
+
+  if (!logChannel?.isTextBased()) {
+    return;
+  }
+
+  const messages = await fetchChannelMessages(channel);
+
+  if (messages.length === 0) {
+    return;
+  }
+
+  const header = [
+    `Transcript - ${label} (#${channel.name})`,
+    `BR lobby ${lobby.publicCode}: ${lobby.name}`,
+    `Team: ${team.name}`,
+    `Archived ${new Date().toISOString()}`,
+    `Messages: ${messages.length}`,
+    '='.repeat(60),
+    '',
+  ].join('\n');
+  const transcript = header + messages.map(formatMessageLine).join('\n');
+  const fileName = `transcript-${lobby.publicCode}-${team.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.txt`;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle('BR Team Room Transcript Archived')
+    .addFields(
+      { name: 'Lobby', value: `\`${lobby.publicCode}\``, inline: true },
+      { name: 'Team', value: team.name, inline: true },
+      { name: 'Channel', value: `${label} (#${channel.name})`, inline: true },
+      { name: 'Messages', value: String(messages.length), inline: true },
+    )
+    .setTimestamp();
+
+  await logChannel
+    .send({
+      embeds: [embed],
+      files: [{ attachment: Buffer.from(transcript, 'utf8'), name: fileName }],
+      allowedMentions: { parse: [] },
+    })
+    .catch(() => null);
+}
+
+async function callReferees(interaction, match, teamName = null) {
   const targetIds = await getRefereeRequestTargets(match);
   const mentions = targetIds.map((id) => `<@${id}>`);
   const roleId = match.settings?.refereeRoleId && interaction.guildId === match.guildId && !match.assignedRefereeId ? match.settings.refereeRoleId : null;
@@ -1421,7 +2120,7 @@ async function callReferees(interaction, match) {
     await interaction.reply({
       content:
         sent > 0
-          ? `Referee request sent for \`${match.id}\` to ${sent} referee(s).`
+          ? `Referee request sent for \`${match.id}\`${teamName ? ` by ${teamName}` : ''} to ${sent} referee(s).`
           : 'I found referee targets, but could not DM them. Ask an admin to install the bot in the org server or have refs enable DMs.',
       ephemeral: true,
     });
@@ -1429,7 +2128,9 @@ async function callReferees(interaction, match) {
   }
 
   await interaction.reply({
-    content: `${mentions.join(' ')} referee requested for \`${match.id}\` (${match.teamA} vs ${match.teamB}).`,
+    content: `${mentions.join(' ')} referee requested for \`${match.id}\` (${match.teamA} vs ${match.teamB})${
+      teamName ? ` by **${teamName}**` : ''
+    }.`,
     allowedMentions: {
       users: targetIds,
       roles: roleId ? [roleId] : [],
@@ -1615,13 +2316,14 @@ function buildRulingEmbed(match, { ruling, team, reason, user }) {
     .setTimestamp();
 }
 
-function buildWarningEmbed(match, { player, rule, note, user, infraction }) {
+function buildWarningEmbed(match, { teamName, player, rule, note, user, infraction }) {
   const embed = new EmbedBuilder()
     .setColor(0xfee75c)
     .setTitle('Warning Issued')
     .addFields(
       { name: 'Match', value: `\`${match.id}\``, inline: true },
       { name: 'Teams', value: `${match.teamA} vs ${match.teamB}`, inline: true },
+      { name: 'Team', value: teamName || '-', inline: true },
       { name: 'Player', value: player, inline: false },
       { name: 'Rule', value: rule, inline: false },
       { name: 'Note', value: note || '—', inline: false },

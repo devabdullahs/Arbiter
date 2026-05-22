@@ -68,7 +68,16 @@ test('maps prisma match records into UI match views', () => {
       voiceChannelId: 'room-voice-1',
       categoryId: 'category-1',
       playerMessageId: 'player-message-1',
+      teamATextChannelId: 'team-a-text',
+      teamAVoiceChannelId: 'team-a-voice',
+      teamAMessageId: 'team-a-message',
+      teamBTextChannelId: 'team-b-text',
+      teamBVoiceChannelId: 'team-b-voice',
+      teamBMessageId: 'team-b-message',
     },
+    warnings: [{ id: 'warn-1', teamName: 'Falcons', player: 'P1', rule: 'R1', note: null, actorId: null, createdAt: new Date('2026-01-01T00:00:00.000Z') }],
+    pauseLogs: [],
+    evidence: [],
   });
 
   assert.equal(view.id, 'ABC12345');
@@ -79,6 +88,9 @@ test('maps prisma match records into UI match views', () => {
   assert.equal(view.teamARoleId, 'team-a-role');
   assert.equal(view.teamBRoleId, 'team-b-role');
   assert.equal(view.room.playerMessageId, 'player-message-1');
+  assert.equal(view.room.teamATextChannelId, 'team-a-text');
+  assert.equal(view.room.teamBMessageId, 'team-b-message');
+  assert.equal(view.warnings[0].teamName, 'Falcons');
   assert.equal(view.settings.refereeRoleId, 'role-1');
   assert.equal(view.vetoMode, 'series_picks');
 });
