@@ -1,95 +1,144 @@
 # Arbiter
 
-**A Discord referee & match-operations bot for esports.**
+**A Discord referee and tournament-operations bot for esports.**
 
-A multi-tenant Discord esports operations bot for referees and tournament admins, built with
-[`discord.js`](https://discord.js.org/) (Components V2 + modals), PostgreSQL, and Prisma.
+Arbiter is a multi-tenant Discord app for running competitive matches, referee logs, score proof,
+evidence vaulting, roster workflows, battle-royale lobbies, and player/referee companion commands.
+It is built with [discord.js](https://discord.js.org/) using Components V2, modals, PostgreSQL, and
+Prisma.
 
-It runs match control panels, map vetoes, score reporting, warnings, pauses, evidence handling,
-referee assignment, dispute escalation, and per-server rules presets — and it works both inside a
-configured org server **and** as a user-installed companion app for referees working external events.
+It is designed for two real tournament situations:
 
-> **License:** [Apache-2.0](LICENSE) — free to use, modify, and distribute, **including commercially**.
-> You must preserve the copyright and attribution notices (see [`NOTICE`](NOTICE)). If you or your org
-> runs this in production, please consider [sponsoring](#support--sponsoring) 💜
-> (see [License](#license)).
+- **Guild-installed org mode:** the bot is installed in an esports server and can create rooms,
+  manage match panels, route referee work, and write to configured log channels.
+- **User-installed companion mode:** players and referees can use safe commands in DMs, private
+  channels, or other servers where the bot is not installed. Admin mutations are blocked unless the
+  user is authorized for the org and the command has enough context.
 
----
-
-## Features
-
-**Match operations**
-- Match control panel (Components V2) with referee actions: Start Veto, Start Match, Report Score,
-  Pause, Warn, Evidence, Ruling, Dispute, Claim, Call Ref, and Close.
-- Temporary per-match text + voice rooms, auto-created under a configured category and cleaned up on close.
-- Optional **team-role room access**: pass a Discord role per team and the match room grants those members access.
-- Private **team rooms**: create one text + voice room per team, associate each room to the team's role,
-  and give coaches/players their own Call Ref, Evidence, Dispute, and optional Report Score controls.
-- **Channel transcript archiving** — when a match closes, the room's text and voice-chat history is saved
-  to the match-log channel as a `.txt` transcript before the channels are deleted.
-
-**Map veto & rules presets**
-- Veto formats: single final-map ban, series map picks, and manual picks.
-- Built-in presets: **Generic**, **SEL Valorant**, **SEL OW2**, **SEL R6S**, **SEL COD BO6**,
-  **SEL Rocket League**, **SEL PUBGM**, **SEL EAFC**, and women/wildcard variants.
-- **Custom per-server presets** via `/preset` — define your own map pool + veto format, saved per guild
-  and selectable in match creation through autocomplete.
-- See [docs/PRESETS.md](docs/PRESETS.md) for preset keys and PDF coverage.
-
-**Scoring**
-- Referee score reporting with required screenshot proof, logged as a rich match-log embed (with the
-  screenshot attached) and mirrored to the evidence vault.
-- Optional **player score reporting** — enable per match so teams can report results from the match channel.
-- Re-opening the score form pre-fills the current score so you edit instead of re-entering.
-
-**Referee tooling**
-- Referee shifts and on-shift paging; **Call Ref** routes only to the assigned referee once a match is claimed.
-- Referee assignment / claim (`/ref`, panel Claim button).
-- Dispute escalation that flips a match to the `DISPUTED` status and alerts referees.
-- Roster submission, review, approval, and locking (`/roster`).
-- Searchable per-server rulebook (`/rule`).
-
-**Evidence & logging**
-- **Evidence vault**: uploaded files are re-hosted into the vault channel so links don't expire, with
-  embeds that show the image inline and tag related players.
-- User pickers in modals support selecting **multiple players** (up to 25) plus a free-text fallback.
-- Pause logs include duration and a live Discord "resumes at" timestamp.
-- Pause budget ledger shows team pause usage and remaining time per match.
-- Warning summaries track player infraction counts and alert admins when the threshold is reached.
-- Team/player history lookup gives referees prior matches, warnings, rosters, evidence, and pause context.
-- **Standalone `/log`** (user-installed): referees working external tournaments — where the bot isn't in
-  the server and no match exists — can log notes, scores, evidence, and warnings with no `match_id`.
-  Each entry is saved to the referee's profile, DM'd back as a receipt, and retrievable via `/log list`.
+> License: [Apache-2.0](LICENSE). You may use, modify, and distribute Arbiter, including
+> commercially, as long as the license and attribution notices are preserved. See [NOTICE](NOTICE).
 
 ---
 
-## Install modes
+## What Arbiter Handles
 
-The bot uses Discord application-command install contexts:
+### Match Operations
 
-- **Guild install** — org/admin/referee workflows inside an esports server.
-- **User install** — player- and referee-companion workflows anywhere Discord allows user-installed apps
-  (DMs, other servers), including the standalone `/log` tool.
+- Components V2 match control panels with buttons for veto, start match, team rooms, score reports,
+  pause logs, warnings, evidence, rulings, claims, disputes, timelines, referee calls, and closing.
+- Flexible match formats from BO1 through large custom formats (`best_of` 1-99).
+- Veto formats for series map picks, final-map vetoes, and manual picks.
+- Built-in rules presets for SEL 2025 rulebooks, common tactical shooters, Overwatch mode rotation,
+  and format-only presets for games where map vetoes do not apply.
+- Custom per-server presets with `/preset create`, stored in the database and available through
+  match-create autocomplete.
+- Referee assignment, match claiming, targeted referee paging, and on-shift routing.
+- Forfeit, DQ, no-show, admin-loss, cancellation, and disputed-match workflows.
 
-Because Discord contexts are command-level, admin subcommands are also rejected at runtime unless the
-interaction is in the configured guild and the user is an authorized org admin/referee.
+### Match Rooms And Team Rooms
+
+- Shared match text and voice rooms can be created under the org's configured category.
+- Team roles can be passed during `/match-admin create`, so only the correct team members can see
+  their team room.
+- Private per-team text and voice rooms include player-safe controls for Call Ref, Evidence,
+  Dispute, and optional player score reports.
+- When a match closes, Arbiter archives text/voice-chat history to the match-log channel before
+  deleting match/team rooms.
+
+### Scores, Evidence, Warnings, And Logs
+
+- Referee score reporting supports whole-match, map/game, round, set, and custom scoring notes.
+- Score modals require or support screenshot proof depending on the workflow.
+- Player score reports can be enabled per match and then reviewed by referees.
+- Evidence modals support URLs, Discord file uploads, and multi-player selection where Discord
+  allows it.
+- Evidence can be mirrored to a configured evidence-vault channel so Discord ephemeral upload links
+  do not become the only reference.
+- Warning workflows track player/team infraction counts and can DM referee receipts or player
+  notices when requested.
+- Pause logs support team, technical, admin, tactical, emergency, and other pause types, with resume
+  timestamps and pause-ledger summaries.
+- Referee notes, handoffs, incidents, roster issues, technical issues, and warning references can be
+  logged without leaving Discord.
+
+### Battle-Royale Operations
+
+Arbiter has a separate BR workflow for games such as Apex Legends, Fortnite, Free Fire, PUBG, and
+PUBG Mobile.
+
+- `/br create` creates an N-team lobby with placement points, kill points, planned game count, and
+  optional team-role mappings.
+- The BR standings board includes controls for Log Game, Adjust/Penalty, Pause, Warn, Evidence,
+  Note, Team Rooms, Dispute, Call Ref, and Close.
+- The Log Game modal pre-fills every team as `Team Name placement kills`, so refs can usually change
+  only the numbers from a scoreboard screenshot.
+- Referee adjustments can add or deduct points/kills and are folded directly into standings.
+- BR warnings, pauses, disputes, evidence, and notes are logged to match-log/evidence channels and
+  reflected on the standings board.
+- BR team rooms create or sync one category per team, with that team's text channel and voice
+  channel grouped together.
+- Existing roles are resolved by stored ID, exact team name, `[LOBBY] Team Name`, or bracket-prefixed
+  names such as `[EWC24 Apex] Team Falcons`.
+- If some team roles are missing, Arbiter asks whether to create missing roles or continue with only
+  the roles it could safely sync.
+- BR room provisioning uses bounded concurrency and bulk permission overwrites so large lobbies do
+  not blast Discord with unnecessary per-permission requests.
+- BR modal submits defer immediately before slow work, avoiding Discord's 3-second interaction
+  timeout on 18-20 team score submissions.
+- Closing a BR lobby archives team-room transcripts and deletes team channels/categories.
+
+### User-Installed Companion Mode
+
+User-installed commands are intentionally safer than guild-installed admin commands.
+
+- Players can look up matches, link profiles, check in, submit evidence, and call refs.
+- Referees can use `/ref-my` from supported user-install contexts for assigned or authorized work:
+  dashboard, score, score review, pause, evidence review, roster review, rule search, logging, and
+  shift handoff.
+- `/log` provides standalone matchless logging for external tournaments where Arbiter is not in the
+  server. It can log notes, scores, evidence, warnings, and show previous logs.
+- User-installed commands never create channels, manage roles, close matches, or mutate admin state
+  unless a valid org/match context exists and the user is authorized.
+
+---
+
+## Discord Install Modes
+
+Arbiter registers commands with Discord application command install contexts:
+
+- **Guild install:** org setup, match admin, BR admin, rooms, score review, rosters, rulebook, and
+  other server operations.
+- **User install:** player/referee companion commands that work in DMs, private channels, and other
+  safe contexts.
+
+Runtime permission checks still matter. Even if Discord exposes a command, Arbiter resolves the org,
+match, user profile, DB membership, assigned referee, and guild roles before allowing privileged
+actions.
 
 ---
 
 ## Requirements
 
-- Node.js **22.12** or newer (`.nvmrc` included)
-- Docker (for local PostgreSQL via `docker-compose.yml`), or any PostgreSQL instance
-- A Discord application + bot token
+- Node.js 22.12 or newer (`.nvmrc` included)
+- Docker for local PostgreSQL, or any PostgreSQL instance
+- A Discord application and bot token
 
-## Setup
+---
+
+## Local Setup
+
+Install dependencies and start Postgres:
 
 ```bash
 npm install
-docker compose up -d            # start local Postgres
-cp .env.example .env            # (Windows: copy .env.example .env)
-npm run db:generate
-npm run db:migrate
+docker compose up -d
+cp .env.example .env
+```
+
+On Windows, use:
+
+```powershell
+copy .env.example .env
 ```
 
 Fill in `.env`:
@@ -101,53 +150,114 @@ DATABASE_URL=postgresql://esports:esports@localhost:5432/esports_admin_bot?schem
 DISCORD_DEV_GUILD_ID=optional-guild-id-for-fast-command-registration
 ```
 
-Register slash commands, then start the bot:
+Generate Prisma, apply migrations, deploy commands, and run the bot:
 
 ```bash
+npm run db:generate
+npm run db:migrate
 npm run deploy:commands
-npm run dev          # watch mode (or: npm start)
+npm run dev
+```
+
+For a normal non-watch process:
+
+```bash
+npm start
 ```
 
 ---
 
-## Command reference
+## First Server Setup
 
-**Org / admin (guild only)**
-- `/org setup` — configure admin role, referee role, match category, match-log channel, and evidence
-  channel. `auto_create:true` creates missing roles/channels.
-- `/org member | members` — save/list org admins and referees in the database so `/ref-my` can
-  authorize them from user-installed contexts where Discord roles are unavailable.
-- `/match-admin create` — create a match panel. Supports `best_of` 1–99, `veto_format`, `rules_preset`
-  (built-in or custom, with autocomplete), optional `team_a_role`/`team_b_role` room access, and
-  `player_scores` to let teams report scores.
-- `/match-admin panel | list | ruling` — re-post a panel, list recent matches, or apply a
-  forfeit/DQ/no-show/admin-loss/cancellation ruling.
-- `/score report` — modal for final score + required screenshot proof.
-- `/warn issue` — warn a player, attach evidence, DM a receipt, optionally DM the player.
-- `/warn summary` — show a player warning count and recent warning history.
-- `/pause ledger` — show each team's pause budget usage and remaining time for a match.
-- `/history team | player` — look up prior team/player operational history for referee review.
-- `/ref-log add` — referee notes, dispute rulings, roster/technical/pause notes, with attachments.
-- `/ref dashboard | assign | unassign` — referee work queue and assignment.
-- `/roster submit | view | approve | reject` — match roster workflow.
-- `/rule search | add | delete` — per-server rulebook.
-- `/preset create | list | delete` — custom per-server rules presets.
-- `/ref-shift` — mark a referee available for targeted pages.
-- `/br create | result | standings | list` — battle-royale lobby scoring: N teams across multiple games with placement + kill points and a live standings board (Apex, Fortnite, Free Fire, PUBG, etc.).
+In the Discord server where Arbiter is installed, run:
 
-- BR control board buttons: Log Game, Adjust/Penalty, Pause, Warn, Evidence, Note, Dispute, Call Ref,
-  and Close, with rich logs to the configured match-log/evidence channels.
+```text
+/org setup auto_create:true
+```
 
-**Player / referee companion (user-installable)**
-- `/match lookup` — player-safe match panel.
-- `/profile link | view` — link and view game accounts.
-- `/checkin` — record a check-in for a public match code.
-- `/evidence submit | review` — attach/review evidence for a match.
-- `/call-ref` — page the referee for a match.
-- `/ref-my dashboard | log | score | score-review | pause | evidence | roster | rule | handoff` —
-  referee tools for matches you're assigned to or authorized for, including off-server/user-installed
-  workflows.
-- `/log note | score | evidence | warning | list` — standalone, matchless logging for external events.
+The setup flow can create or save:
+
+- admin role
+- referee role
+- match category
+- match-log channel
+- evidence-vault channel
+
+You can also provide existing roles/channels manually instead of auto-creating them.
+
+Use `/org member` to save org admins/referees in the database. This matters for user-installed
+contexts where Discord role data may not be available.
+
+---
+
+## Command Reference
+
+### Guild-Installed Org Commands
+
+| Command | Purpose |
+|---|---|
+| `/org setup` | Configure org roles/channels, with optional auto-create. |
+| `/org member` / `/org members` | Save and list org admins/referees in the DB. |
+| `/match-admin create` | Create a match panel with teams, format, rules preset, veto format, roles, and player score option. |
+| `/match-admin panel` | Re-post and re-track a match control panel. |
+| `/match-admin list` | List recent matches in the org. |
+| `/match-admin ruling` | Apply forfeit, DQ, no-show, admin loss, or cancellation. |
+| `/score report` | Referee score report with screenshot proof. |
+| `/score pending` / `/score review` | Review player score reports. |
+| `/warn issue` / `/warn summary` | Issue warnings and review infraction history. |
+| `/pause ledger` | Show pause usage and remaining pause budget. |
+| `/ref dashboard` | View active matches, pending scores, rosters, evidence, and reminders. |
+| `/ref assign` / `/ref unassign` | Assign or clear match referees. |
+| `/ref-log add` | Log referee notes with optional attachments and references. |
+| `/roster submit/view/approve/reject/lock/unlock` | Manage roster workflow. |
+| `/rule search/add/delete` | Search and maintain the server rulebook. |
+| `/preset create/list/delete` | Manage custom map/rules presets. |
+| `/history team/player` | Review operational history for teams or players. |
+| `/evidence submit/review` | Submit or review match evidence. |
+| `/ref-shift` | Mark yourself available or unavailable for referee pages. |
+
+### Battle-Royale Commands
+
+| Command | Purpose |
+|---|---|
+| `/br create` | Create a BR lobby with teams, game, planned games, scoring table, and optional team-role map. |
+| `/br result` | Open the pre-filled game result modal for a lobby/game number. |
+| `/br standings` | Re-post the live standings board and track it as the control panel. |
+| `/br rooms` | Points refs back to the control panel's Team Rooms flow for safe room provisioning. |
+| `/br list` | List recent BR lobbies in the org. |
+
+BR control-board buttons:
+
+- Log Game
+- Adjust/Penalty
+- Pause
+- Warn
+- Evidence
+- Note
+- Team Rooms
+- Dispute
+- Call Ref
+- Close
+
+### User-Installed Companion Commands
+
+| Command | Purpose |
+|---|---|
+| `/match lookup` | Show player-safe match details from a public code. |
+| `/profile link` / `/profile view` | Link and view game accounts. |
+| `/checkin` | Check into a match by public code. |
+| `/call-ref` | Page available or assigned referees. |
+| `/evidence submit` | Submit evidence from a safe user-installed context. |
+| `/ref-my dashboard` | Show your assigned/authorized referee work across orgs. |
+| `/ref-my log` | Log a referee note with optional file and DM references. |
+| `/ref-my score` | Apply a score with optional screenshot proof. |
+| `/ref-my score-review` | Review pending player score reports. |
+| `/ref-my pause` | Log a pause and schedule a resume reminder when possible. |
+| `/ref-my evidence` | Review evidence for assigned/authorized matches. |
+| `/ref-my roster` | View, approve, reject, lock, or unlock rosters. |
+| `/ref-my rule` | Search an org rulebook from a user-install context. |
+| `/ref-my handoff` | Send a shift handoff note to logs and optionally DM the next ref. |
+| `/log note/score/evidence/warning/list` | Standalone referee logging for external events with no match record. |
 
 ---
 
@@ -185,64 +295,101 @@ npm run dev          # watch mode (or: npm start)
 src/
   commands/        Slash commands and install-context policy
   db/              Prisma client
-  interactions/    Button, select menu, modal, and autocomplete routing
-  services/        Org, match, referee, preset, profile, standalone-log logic
+  interactions/    Buttons, selects, modals, autocomplete, and room workflows
+  services/        Org, match, BR, referee, roster, scoring, evidence, preset, and profile logic
   ui/              Components V2 panels and modals
-  utils/           Custom IDs and view mapping
+  utils/           Custom IDs, message refresh, and view mapping
 prisma/
-  schema.prisma    Multi-tenant schema
+  schema.prisma    Multi-tenant data model
   migrations/      SQL migration history
 test/              Node test runner specs
+docs/
+  PRESETS.md       Built-in preset reference
 ```
 
-Model boundaries:
+Core model boundaries:
 
-- `Organization` maps one Discord guild to an org tenant; `OrgSettings` holds its roles/channels.
-- `UserProfile` is global and reusable across orgs.
-- `Match.publicCode` is the user-facing match ID used by commands and buttons.
-- `RulesPreset` stores custom per-org presets; `StandaloneLog` stores matchless referee logs per user.
-- Operational records carry `organizationId` so a hosted deployment can serve many orgs safely.
+- `Organization` maps one Discord guild to one tenant.
+- `OrgSettings` stores the org's admin/referee roles and operational channels.
+- `UserProfile` is global and can participate in multiple orgs.
+- `Match` and all match operations belong to an organization.
+- `BrLobby`, `BrTeam`, `BrGameResult`, `BrAdjustment`, and `BrLog` handle battle-royale events.
+- `RulesPreset` stores per-org custom rules/map presets.
+- `StandaloneLog` stores user-owned, matchless logs for external events.
+
+---
+
+## Reliability Notes
+
+- Components V2 messages are sent with `MessageFlags.IsComponentsV2`.
+- Display-component messages intentionally do not mix legacy content/embeds with Components V2
+  payloads.
+- Long BR modal submits defer immediately before slow DB/log/panel work, then edit the deferred
+  reply. This avoids Discord `Unknown interaction` errors caused by the 3-second acknowledgement
+  window.
+- BR team-room provisioning uses bounded concurrency and bulk permission overwrite updates instead of
+  dozens of per-permission edits.
+- The bot explicitly grants itself room access when it creates private rooms, so it can keep updating
+  panels and archiving channels later.
 
 ---
 
 ## Verification
 
 ```bash
-npm run check     # syntax check + Node test suite
+npm run check
 npx prisma validate
 ```
 
-Tests cover veto/match-view helpers, install-context policy, admin interaction gates, modal/file-upload
-support, and command registration. Full integration testing requires a running Postgres, applied
-migrations, registered commands, and a live Discord app.
+`npm run check` runs syntax checks and the Node test suite. Current coverage includes:
 
-GitHub Actions runs `npm ci`, `npx prisma validate`, and `npm run check` on pushes to `main` and pull
-requests.
+- command registration and install-context policy
+- admin/referee permission gates
+- match panel and veto helpers
+- score/evidence/warning/pause modal support
+- user-installed player and referee companion workflows
+- BR standings, referee controls, modal defer behavior, and team-room role/category syncing
+- preset coverage and match-view mapping
+
+GitHub Actions runs `npm ci`, `npx prisma validate`, and `npm run check` on pushes and pull requests.
 
 ---
 
-## Support & Sponsoring
+## Security And Operations
 
-This bot is free and open source under Apache-2.0 — **including for commercial use**, so events,
-leagues, and organizations are welcome to run it. If it's useful to you (especially in production),
-please consider **[sponsoring the project on GitHub](https://github.com/sponsors/devabdullahs)** 💜.
-Sponsorship is what keeps it actively maintained and is hugely appreciated.
+- Do not commit `.env` or production bot tokens.
+- Rotate tokens if they were shared in a test environment.
+- Give the bot only the permissions it needs: application commands, send messages, manage channels,
+  manage roles, attach files, read message history, and voice channel access where room creation is
+  used.
+- Keep the bot role above roles it must create or manage.
+- PostgreSQL is the source of truth; Redis is not required for the current stage.
 
-- **Author:** Abdullah
-- **GitHub:** [@devabdullahs](https://github.com/devabdullahs)
-- **Discord:** [@monster20](https://discord.com/users/170115708871507970)
-- **Project repo:** https://github.com/devabdullahs/Arbiter
+---
+
+## Support And Sponsoring
+
+Arbiter is free and open source under Apache-2.0, including for commercial use. If it helps your
+league, event, community, or organization, please consider sponsoring development:
+
+[Sponsor the project on GitHub](https://github.com/sponsors/devabdullahs)
+
+- Author: Abdullah
+- GitHub: [@devabdullahs](https://github.com/devabdullahs)
+- Discord: [@monster20](https://discord.com/users/170115708871507970)
+- Repository: [devabdullahs/Arbiter](https://github.com/devabdullahs/Arbiter)
+
+---
 
 ## License
 
-Licensed under the **[Apache License 2.0](LICENSE)** — an OSI-approved open-source license.
+Licensed under the [Apache License 2.0](LICENSE).
 
-**In plain terms:** anyone may use, modify, and distribute this software, **including commercially**,
-free of charge. In return, you must:
+In plain terms, anyone may use, modify, and distribute this software, including commercially, free of
+charge. In return, you must:
 
 - include a copy of the license,
-- preserve the copyright, license, and attribution notices (see [`NOTICE`](NOTICE)), and
+- preserve copyright, license, and attribution notices, and
 - state in modified files that you changed them.
 
-It also includes an explicit patent grant and the standard "no warranty" disclaimer. Attribution to the
-original author must be kept. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) for the full details.
+See [LICENSE](LICENSE) and [NOTICE](NOTICE) for the full legal text.
