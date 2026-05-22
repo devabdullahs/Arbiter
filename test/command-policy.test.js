@@ -198,6 +198,17 @@ test('match team rooms expose player-safe team controls and cleanup', async () =
   assert.match(schema, /teamName\s+String\?/);
 });
 
+test('BR team rooms resolve existing roles before creating missing roles', async () => {
+  const router = await readFile(new URL('../src/interactions/router.js', import.meta.url), 'utf8');
+
+  assert.match(router, /findBrTeamRole/);
+  assert.match(router, /normalizeRoleName/);
+  assert.match(router, /br-rooms-create-roles/);
+  assert.match(router, /br-rooms-sync-existing/);
+  assert.match(router, /guild\.members\.me\.id/);
+  assert.match(router, /Channel errors/);
+});
+
 test('referee operations include approval, roster, rule, and reminder workflows', async () => {
   const score = await readFile(new URL('../src/commands/score.js', import.meta.url), 'utf8');
   const roster = await readFile(new URL('../src/commands/roster.js', import.meta.url), 'utf8');

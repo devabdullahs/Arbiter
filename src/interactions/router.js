@@ -848,16 +848,39 @@ function brTeamChannelName(lobby, team, suffix = '') {
   return `br-${lobby.publicCode.toLowerCase()}-${slug || 'team'}${suffix}`.slice(0, 90);
 }
 
-async function ensureBrTeamRole(guild, lobby, team) {
+function normalizeRoleName(name) {
+  return String(name ?? '')
+    .replace(/^\s*(\[[^\]]+\]\s*)+/, '')
+    .trim()
+    .toLowerCase();
+}
+
+async function findBrTeamRole(guild, lobby, team) {
   if (team.discordRoleId) {
     const existing = await guild.roles.fetch(team.discordRoleId).catch(() => null);
     if (existing) return existing.id;
   }
 
-  const roleName = `[${lobby.publicCode}] ${team.name}`.slice(0, 100);
-  const cached = guild.roles.cache.find((role) => role.name === roleName);
-  if (cached) return cached.id;
+  await guild.roles.fetch().catch(() => null);
 
+  const exactNames = [team.name, `[${lobby.publicCode}] ${team.name}`].map((name) => name.toLowerCase());
+  const exact = guild.roles.cache.find((role) => exactNames.includes(role.name.toLowerCase()));
+  if (exact) return exact.id;
+
+  const normalizedTeamName = normalizeRoleName(team.name);
+  const normalizedMatches = guild.roles.cache.filter((role) => normalizeRoleName(role.name) === normalizedTeamName);
+  if (normalizedMatches.size === 1) return normalizedMatches.first().id;
+
+  return null;
+}
+
+async function ensureBrTeamRole(guild, lobby, team, { createMissing = false } = {}) {
+  const existingRoleId = await findBrTeamRole(guild, lobby, team);
+  if (existingRoleId) return existingRoleId;
+
+  if (!createMissing) return null;
+
+  const roleName = `[${lobby.publicCode}] ${team.name}`.slice(0, 100);
   if (!guild.members.me?.permissions.has(PermissionFlagsBits.ManageRoles)) {
     return null;
   }
@@ -873,9 +896,54 @@ async function ensureBrTeamRole(guild, lobby, team) {
   return role?.id ?? null;
 }
 
+async function resolveBrTeamRoles(guild, lobby, { createMissing = false } = {}) {
+  const roleUpdates = [];
+  const missing = [];
+
+  for (const team of lobby.teams) {
+    const roleId = await ensureBrTeamRole(guild, lobby, team, { createMissing });
+    if (!roleId) {
+      missing.push(team.name);
+      continue;
+    }
+
+    if (roleId !== team.discordRoleId) {
+      roleUpdates.push({ teamId: team.id, roleId });
+    }
+  }
+
+  return { roleUpdates, missing };
+}
+
+function brRolePromptComponents(code) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(customId('br-rooms-create-roles', code))
+        .setLabel('Create Missing Roles')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(customId('br-rooms-sync-existing', code))
+        .setLabel('Continue With Synced Roles')
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+}
+
 function brRoomPermissionOverwrites(guild, lobby, team, roleId, refereeId) {
   const overwrites = [
     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+    {
+      id: guild.members.me.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.AttachFiles,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.Connect,
+        PermissionFlagsBits.Speak,
+      ],
+    },
     {
       id: refereeId,
       allow: [
@@ -926,7 +994,16 @@ async function syncBrTeamRoomPermissions(guild, lobby, team, channels, refereeId
   }
 }
 
-async function createBrTeamRooms(interaction, lobby) {
+async function createChannelWithReport(guild, options, failures, teamName, channelKind) {
+  try {
+    return await guild.channels.create(options);
+  } catch (error) {
+    failures.push(`${teamName} ${channelKind}: ${error.message ?? 'unknown error'}`);
+    return null;
+  }
+}
+
+async function createBrTeamRooms(interaction, lobby, { createMissingRoles = false, continueWithMissingRoles = false } = {}) {
   if (!interaction.guild) {
     await interaction.reply({ content: 'BR team rooms can only be created inside the org server.', ephemeral: true });
     return;
@@ -945,33 +1022,61 @@ async function createBrTeamRooms(interaction, lobby) {
 
   await interaction.deferReply({ ephemeral: true });
 
-  const roomUpdates = [];
+  const rolePlan = await resolveBrTeamRoles(interaction.guild, lobby, { createMissing: createMissingRoles });
+  let workingLobby = lobby;
 
-  for (const team of lobby.teams) {
-    const roleId = await ensureBrTeamRole(interaction.guild, lobby, team);
+  if (rolePlan.roleUpdates.length) {
+    workingLobby = await setBrTeamRooms(lobby.publicCode, rolePlan.roleUpdates);
+  }
+
+  if (rolePlan.missing.length && !continueWithMissingRoles && !createMissingRoles) {
+    await interaction.editReply({
+      content: [
+        `I synced ${rolePlan.roleUpdates.length} existing role${rolePlan.roleUpdates.length === 1 ? '' : 's'} for \`${lobby.publicCode}\`.`,
+        `Missing team roles: ${rolePlan.missing.join(', ')}.`,
+        'Create the missing roles now, or continue with only the roles I could safely match.',
+      ].join('\n'),
+      components: brRolePromptComponents(lobby.publicCode),
+    });
+    return;
+  }
+
+  const roomUpdates = [];
+  const failures = [];
+
+  for (const team of workingLobby.teams) {
+    const roleId = await ensureBrTeamRole(interaction.guild, workingLobby, team, { createMissing: createMissingRoles });
     const permissionOverwrites = brRoomPermissionOverwrites(interaction.guild, lobby, team, roleId, interaction.user.id);
     const textChannel =
       (team.textChannelId ? await interaction.guild.channels.fetch(team.textChannelId).catch(() => null) : null) ??
-      (await interaction.guild.channels
-        .create({
+      (await createChannelWithReport(
+        interaction.guild,
+        {
           name: brTeamChannelName(lobby, team),
           type: ChannelType.GuildText,
           parent: categoryId,
           topic: `${lobby.name} - ${lobby.publicCode} - ${team.name}${roleId ? ` | role: ${roleId}` : ''}`,
           permissionOverwrites,
-        })
-        .catch(() => null));
+        },
+        failures,
+        team.name,
+        'text channel',
+      ));
 
     const voiceChannel =
       (team.voiceChannelId ? await interaction.guild.channels.fetch(team.voiceChannelId).catch(() => null) : null) ??
-      (await interaction.guild.channels
-        .create({
+      (await createChannelWithReport(
+        interaction.guild,
+        {
           name: brTeamChannelName(lobby, team, '-vc'),
           type: ChannelType.GuildVoice,
           parent: categoryId,
           permissionOverwrites,
-        })
-        .catch(() => null));
+        },
+        failures,
+        team.name,
+        'voice channel',
+      ));
 
     await syncBrTeamRoomPermissions(
       interaction.guild,
@@ -988,9 +1093,11 @@ async function createBrTeamRooms(interaction, lobby) {
       voiceChannelId: voiceChannel?.id ?? team.voiceChannelId,
       teamMessageId: team.teamMessageId,
     });
+
+    await new Promise((resolve) => setTimeout(resolve, 350));
   }
 
-  let updated = await setBrTeamRooms(lobby.publicCode, roomUpdates);
+  let updated = await setBrTeamRooms(workingLobby.publicCode, roomUpdates);
   const messageUpdates = [];
 
   for (const team of updated.teams) {
@@ -1015,14 +1122,20 @@ async function createBrTeamRooms(interaction, lobby) {
 
   const createdCount = updated.teams.filter((team) => team.textChannelId || team.voiceChannelId).length;
   const missingRoles = updated.teams.filter((team) => !team.discordRoleId).map((team) => team.name);
+  const incompleteRooms = updated.teams
+    .filter((team) => !team.textChannelId || !team.voiceChannelId)
+    .map((team) => team.name);
 
   await interaction.editReply({
     content: [
       `BR team rooms synced for \`${updated.publicCode}\`: ${createdCount}/${updated.teams.length} teams.`,
       missingRoles.length ? `No role could be created/linked for: ${missingRoles.join(', ')}.` : null,
+      incompleteRooms.length ? `Still missing rooms for: ${incompleteRooms.join(', ')}.` : null,
+      failures.length ? `Channel errors:\n${failures.slice(0, 8).map((failure) => `- ${failure}`).join('\n')}` : null,
     ]
       .filter(Boolean)
       .join('\n'),
+    components: [],
   });
 }
 
@@ -1098,6 +1211,12 @@ async function handleBrComponent(interaction, parsed) {
       return;
     case 'br-rooms':
       await createBrTeamRooms(interaction, lobby);
+      return;
+    case 'br-rooms-create-roles':
+      await createBrTeamRooms(interaction, lobby, { createMissingRoles: true });
+      return;
+    case 'br-rooms-sync-existing':
+      await createBrTeamRooms(interaction, lobby, { continueWithMissingRoles: true });
       return;
     case 'br-dispute':
       await interaction.showModal(brDisputeModal(lobby));
@@ -1590,6 +1709,7 @@ function baseRoomAllows() {
 function teamRoomPermissionOverwrites(guild, match, teamSlot, roleId, refereeId) {
   const overwrites = [
     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+    { id: guild.members.me.id, allow: baseRoomAllows() },
     { id: refereeId, allow: baseRoomAllows() },
   ];
 
@@ -1777,6 +1897,17 @@ async function createMatchRoom(interaction, match, categoryId) {
 
   const permissionOverwrites = [
     { id: everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+    {
+      id: interaction.guild.members.me.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.AttachFiles,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.Connect,
+        PermissionFlagsBits.Speak,
+      ],
+    },
     {
       id: interaction.user.id,
       allow: [
