@@ -97,6 +97,7 @@ model BrTeam {
   name           String
   seed           Int?
   discordRoleId  String?
+  categoryChannelId String?
   textChannelId  String?
   voiceChannelId String?
   teamMessageId  String?

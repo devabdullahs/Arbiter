@@ -206,6 +206,9 @@ test('BR team rooms resolve existing roles before creating missing roles', async
   assert.match(router, /br-rooms-create-roles/);
   assert.match(router, /br-rooms-sync-existing/);
   assert.match(router, /guild\.members\.me\.id/);
+  assert.match(router, /brTeamCategoryName/);
+  assert.match(router, /categoryChannelId/);
+  assert.match(router, /channelWriteDelayMs/);
   assert.match(router, /Channel errors/);
 });
 

@@ -221,6 +221,7 @@ export async function setBrTeamRooms(code, rooms) {
         where: { id: room.teamId },
         data: {
           discordRoleId: room.roleId ?? undefined,
+          categoryChannelId: room.categoryChannelId ?? undefined,
           textChannelId: room.textChannelId ?? undefined,
           voiceChannelId: room.voiceChannelId ?? undefined,
           teamMessageId: room.teamMessageId ?? undefined,
