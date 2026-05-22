@@ -24,6 +24,24 @@ It is designed for two real tournament situations:
 
 ---
 
+## Why Organizers Can Trust It
+
+Arbiter is built for organizations that are careful about server security and data ownership.
+
+- **Self-hostable by design:** run your own Discord application, bot token, and PostgreSQL database.
+- **No required external SaaS:** local Docker Compose is enough for development and small event tests.
+- **Org data stays in your database:** matches, logs, warnings, evidence metadata, and room mappings are
+  stored in Postgres under your control.
+- **User-install mode is deliberately limited:** it gives referees personal logging and lookup tools
+  without managing roles, creating channels, closing matches, or mutating org state unless a valid org
+  context and authorization exist.
+- **Permission boundaries are documented:** see [Self-Hosting And Trust](docs/SELF_HOSTING.md) and
+  [Security Policy](SECURITY.md).
+
+For practical event flows, see [Referee Workflows](docs/WORKFLOWS.md).
+
+---
+
 ## What Arbiter Handles
 
 ### Match Operations
