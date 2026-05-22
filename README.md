@@ -301,10 +301,6 @@ BR control-board buttons:
 |---|---|
 | ![Pause ledger output](docs/images/pause-ledger.png) | ![Warning summary output](docs/images/warn-summary.png) |
 
-| Team-room controls | Player/coaches team room |
-|---|---|
-| ![Team room controls](docs/images/match-team-rooms-panel.png) | ![Player team room panel](docs/images/match-team-room-player-panel.png) |
-
 | Team history | Player history |
 |---|---|
 | ![Team history output](docs/images/history-team.png) | ![Player history output](docs/images/history-player.png) |
