@@ -36,8 +36,10 @@
   "scripts": {
     "deploy:commands": "node src/deploy-commands.js",
     "db:generate": "prisma generate",
+    "db:deploy": "prisma migrate deploy",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
+    "demo:seed": "node scripts/seed-demo.js",
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "check": "node --check src/index.js && node --check src/deploy-commands.js && node --test"

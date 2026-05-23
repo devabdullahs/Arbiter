@@ -38,7 +38,9 @@ Arbiter is built for organizations that are careful about server security and da
 - **Permission boundaries are documented:** see [Self-Hosting And Trust](docs/SELF_HOSTING.md) and
   [Security Policy](SECURITY.md).
 
-For practical event flows, see [Referee Workflows](docs/WORKFLOWS.md).
+For practical event flows, see [Referee Workflows](docs/WORKFLOWS.md). For setup beyond local
+development, see [Deployment Guide](docs/DEPLOYMENT.md). For repeatable local demos, see
+[Demo Data](docs/DEMO_DATA.md).
 
 ---
 
@@ -179,6 +181,12 @@ npm run db:generate
 npm run db:migrate
 npm run deploy:commands
 npm run dev
+```
+
+Optional demo data for local screenshots and smoke tests:
+
+```bash
+npm run demo:seed
 ```
 
 For a normal non-watch process:

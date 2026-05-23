@@ -9,6 +9,8 @@
 - Guild-install and user-install command contexts.
 - PostgreSQL and Prisma persistence with migration history.
 - Self-hosting and trust documentation for organizers.
+- Small VPS deployment guide.
+- Repeatable local demo seed data.
 
 ### Match Operations
 
@@ -62,8 +64,6 @@
 
 - Short demo video showing match panel, BR lobby, evidence vault, and standalone logging.
 - More real-event walkthroughs for common tournament formats.
-- Example deployment guide for a small VPS.
-- Optional sample seed data for local demos.
 
 ### Automation And Integrations
 
