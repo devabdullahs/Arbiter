@@ -6,3 +6,10 @@ data/
 dist/
 coverage/
 *.log
+
+# Local AI-tooling and generated knowledge graph (not needed by collaborators)
+graphify-out/
+.claude/
+.codex/
+CLAUDE.md
+AGENTS.md
