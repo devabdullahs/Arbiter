@@ -221,6 +221,7 @@ model BrLobby {
 model BrTeam {
   id                String         @id @default(cuid())
   lobbyId           String
+  linkedTeamId      String?
   name              String
   seed              Int?
   discordRoleId     String?
@@ -229,6 +230,7 @@ model BrTeam {
   voiceChannelId    String?
   teamMessageId     String?
   lobby             BrLobby        @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  linkedTeam        Team?          @relation(fields: [linkedTeamId], references: [id], onDelete: SetNull)
   results           BrGameResult[]
   adjustments       BrAdjustment[]
   logs              BrLog[]
@@ -236,6 +238,7 @@ model BrTeam {
 
   @@unique([lobbyId, name])
   @@index([lobbyId])
+  @@index([linkedTeamId])
 }
 
 // Referee point/kill adjustments and penalties — included in standings totals.
@@ -446,6 +449,7 @@ model Team {
   captain          UserProfile?       @relation("TeamCaptain", fields: [captainProfileId], references: [id], onDelete: SetNull)
   members          TeamMember[]
   participants     MatchParticipant[]
+  brLobbyTeams     BrTeam[]
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 

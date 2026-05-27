@@ -30,24 +30,35 @@ export default async function MatchesPage() {
     );
   }
 
-  const matches = await prisma.match.findMany({
-    where: { organizationId: { in: ctx.orgIds } },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    select: {
-      id: true,
-      publicCode: true,
-      teamAName: true,
-      teamBName: true,
-      bestOf: true,
-      status: true,
-      teamAScore: true,
-      teamBScore: true,
-      channelId: true,
-      createdAt: true,
-      organization: { select: { discordGuildId: true, name: true } },
-    },
-  });
+  const [matches, teams] = await Promise.all([
+    prisma.match.findMany({
+      where: { organizationId: { in: ctx.orgIds } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        publicCode: true,
+        teamAName: true,
+        teamBName: true,
+        bestOf: true,
+        status: true,
+        teamAScore: true,
+        teamBScore: true,
+        channelId: true,
+        createdAt: true,
+        organization: { select: { discordGuildId: true, name: true } },
+      },
+    }),
+    prisma.team.findMany({
+      where: { organizationId: { in: ctx.orgIds } },
+      orderBy: [{ organization: { name: "asc" } }, { name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        organization: { select: { id: true, name: true } },
+      },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -58,31 +69,57 @@ export default async function MatchesPage() {
       <Card>
         <CardContent className="space-y-3 py-4">
           <h2 className="text-sm font-medium">Create match</h2>
+          <p className="text-muted-foreground text-sm">
+            Select existing teams to link rosters and player check-ins. Use
+            custom names only for one-off matches.
+          </p>
           <form action={createWebMatch} className="grid gap-3 lg:grid-cols-6">
             <select
               name="organizationId"
-              defaultValue={ctx.activeOrg?.id ?? ctx.orgs[0]?.id}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+              defaultValue={ctx.activeStaffOrg?.id ?? ctx.staffOrgs[0]?.id}
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
             >
-              {ctx.orgs.map((org) => (
+              {ctx.staffOrgs.map((org) => (
                 <option key={org.id} value={org.id}>
                   {org.name}
                 </option>
               ))}
             </select>
+            <select
+              name="teamAId"
+              defaultValue=""
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
+            >
+              <option value="">Team A: custom name</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.organization.name} / {team.name}
+                </option>
+              ))}
+            </select>
+            <select
+              name="teamBId"
+              defaultValue=""
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
+            >
+              <option value="">Team B: custom name</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.organization.name} / {team.name}
+                </option>
+              ))}
+            </select>
             <input
               name="teamAName"
-              placeholder="Team A"
-              required
+              placeholder="Custom Team A name"
               maxLength={80}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
             />
             <input
               name="teamBName"
-              placeholder="Team B"
-              required
+              placeholder="Custom Team B name"
               maxLength={80}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
             />
             <input
               name="bestOf"

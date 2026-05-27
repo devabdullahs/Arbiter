@@ -4,16 +4,60 @@ import { NoOrgAccess, PageHeader, SimpleTable } from "@/components/dashboard-ui"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { getAccessContext } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
+
+const STATUSES = ["submitted", "reviewed", "approved", "rejected"];
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
 function fmt(date: Date) {
   return date.toISOString().slice(0, 16).replace("T", " ");
 }
 
-export default async function EvidencePage() {
+function cleanQuery(value: string | undefined) {
+  return String(value ?? "").trim().slice(0, 120);
+}
+
+function cleanPage(value: string | undefined) {
+  const page = Number.parseInt(String(value ?? "1"), 10);
+  return Number.isFinite(page) && page > 0 ? page : 1;
+}
+
+function cleanPageSize(value: string | undefined) {
+  const parsed = Number.parseInt(String(value ?? "50"), 10);
+  return PAGE_SIZE_OPTIONS.includes(parsed as (typeof PAGE_SIZE_OPTIONS)[number])
+    ? parsed
+    : 50;
+}
+
+function pageHref(page: number, query: string, status: string, pageSize: number) {
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  if (status) params.set("status", status);
+  if (pageSize !== 50) params.set("perPage", String(pageSize));
+  if (page > 1) params.set("page", String(page));
+  const suffix = params.toString();
+  return suffix ? `/evidence?${suffix}` : "/evidence";
+}
+
+export default async function EvidencePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    q?: string;
+    status?: string;
+    page?: string;
+    perPage?: string;
+  }>;
+}) {
   const ctx = await getAccessContext();
   if (!ctx) return null;
+  const params = searchParams ? await searchParams : {};
+  const query = cleanQuery(params.q);
+  const status = STATUSES.includes(String(params.status)) ? String(params.status) : "";
+  const page = cleanPage(params.page);
+  const pageSize = cleanPageSize(params.perPage);
 
   if (ctx.orgIds.length === 0) {
     return (
@@ -24,28 +68,105 @@ export default async function EvidencePage() {
     );
   }
 
-  const items = await prisma.evidence.findMany({
-    where: { organizationId: { in: ctx.orgIds } },
-    orderBy: { createdAt: "desc" },
-    take: 150,
-    include: {
-      match: {
-        select: {
-          publicCode: true,
-          teamAName: true,
-          teamBName: true,
-          organization: { select: { name: true } },
+  const searchWhere = query
+    ? {
+        OR: [
+          { note: { contains: query, mode: "insensitive" as const } },
+          { url: { contains: query, mode: "insensitive" as const } },
+          { status: { contains: query, mode: "insensitive" as const } },
+          {
+            match: {
+              publicCode: { contains: query, mode: "insensitive" as const },
+            },
+          },
+          {
+            match: {
+              teamAName: { contains: query, mode: "insensitive" as const },
+            },
+          },
+          {
+            match: {
+              teamBName: { contains: query, mode: "insensitive" as const },
+            },
+          },
+          {
+            match: {
+              organization: {
+                name: { contains: query, mode: "insensitive" as const },
+              },
+            },
+          },
+        ],
+      }
+    : {};
+  const where = {
+    organizationId: { in: ctx.orgIds },
+    ...(status ? { status } : {}),
+    ...searchWhere,
+  };
+  const [items, total] = await prisma.$transaction([
+    prisma.evidence.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: {
+        match: {
+          select: {
+            publicCode: true,
+            teamAName: true,
+            teamBName: true,
+            organization: { select: { name: true } },
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.evidence.count({ where }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Evidence"
-        description={`${items.length} most recent submissions across your organizations.`}
+        description={`Showing ${items.length} of ${total} matching submissions across your organizations.`}
       />
+
+      <Card>
+        <CardContent className="py-4">
+          <form className="grid gap-3 md:grid-cols-[1fr_180px_140px_auto]">
+            <Input
+              name="q"
+              defaultValue={query}
+              placeholder="Search by match code, team, note, URL, or org"
+            />
+            <select
+              name="status"
+              defaultValue={status}
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+            >
+              <option value="">Any status</option>
+              {STATUSES.map((entry) => (
+                <option key={entry} value={entry}>
+                  {entry}
+                </option>
+              ))}
+            </select>
+            <select
+              name="perPage"
+              defaultValue={String(pageSize)}
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+            >
+              {PAGE_SIZE_OPTIONS.map((entry) => (
+                <option key={entry} value={entry}>
+                  {entry} per page
+                </option>
+              ))}
+            </select>
+            <Button type="submit">Search</Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-3 md:hidden">
         {items.length === 0 ? (
@@ -125,6 +246,43 @@ export default async function EvidencePage() {
           empty="No evidence submitted yet."
         />
       </div>
+      {totalPages > 1 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-muted-foreground text-sm">
+            Page {page} of {totalPages} / {pageSize} per page
+          </p>
+          <div className="flex gap-2">
+            <Button asChild variant="outline" size="sm" aria-disabled={page <= 1}>
+              <Link
+                href={pageHref(Math.max(1, page - 1), query, status, pageSize)}
+                className={page <= 1 ? "pointer-events-none opacity-50" : undefined}
+              >
+                Previous
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              aria-disabled={page >= totalPages}
+            >
+              <Link
+                href={pageHref(
+                  Math.min(totalPages, page + 1),
+                  query,
+                  status,
+                  pageSize,
+                )}
+                className={
+                  page >= totalPages ? "pointer-events-none opacity-50" : undefined
+                }
+              >
+                Next
+              </Link>
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -46,15 +46,22 @@ export function authNoticeFromParams(params: URLSearchParams): AuthNotice | null
   return null;
 }
 
-export function friendlyPasskeyError(message?: string) {
+export function friendlyPasskeyError(
+  message?: string,
+  action: "register" | "sign-in" = "register",
+) {
   const lower = (message ?? "").toLowerCase();
-  if (
+  const cancelled =
     lower.includes("cancel") ||
     lower.includes("not allowed") ||
     lower.includes("aborted") ||
-    lower.includes("operation either timed out")
-  ) {
-    return "Passkey registration was cancelled. No passkey was added.";
+    lower.includes("timed out");
+  if (cancelled) {
+    return action === "sign-in"
+      ? "Passkey sign-in was cancelled or timed out."
+      : "Passkey registration was cancelled. No passkey was added.";
   }
-  return message || "Could not complete the passkey action.";
+  return action === "sign-in"
+    ? "Couldn't complete passkey sign-in. Please try again."
+    : message || "Could not complete the passkey action.";
 }

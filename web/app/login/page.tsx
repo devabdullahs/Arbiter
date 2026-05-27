@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
+import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,7 +15,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { appendAuthNotice, authNoticeFromParams } from "@/lib/auth-errors";
+import {
+  appendAuthNotice,
+  authNoticeFromParams,
+  friendlyPasskeyError,
+} from "@/lib/auth-errors";
 import { authClient } from "@/lib/auth-client";
 
 import { markPasskeyUsed } from "./actions";
@@ -122,9 +127,7 @@ function LoginCard() {
         returnWebAuthnResponse: true,
       });
       if (res?.error) {
-        toast.error(
-          res.error.message ?? "Passkey sign-in failed or was cancelled.",
-        );
+        toast.error(friendlyPasskeyError(res.error.message, "sign-in"));
         return;
       }
       if (res && typeof res === "object" && "webauthn" in res) {
@@ -132,14 +135,17 @@ function LoginCard() {
       }
       window.location.href = callbackURL;
     } catch (error) {
-      toast.error(errorMessage(error, "Passkey sign-in failed or was cancelled."));
+      toast.error(friendlyPasskeyError(errorMessage(error, ""), "sign-in"));
     } finally {
       setPending(null);
     }
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-4">
+    <main className="relative flex min-h-svh items-center justify-center p-4">
+      <div className="absolute right-4 top-4">
+        <ModeToggle />
+      </div>
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-1 text-center">
           <div className="bg-primary text-primary-foreground mx-auto flex h-10 w-10 items-center justify-center rounded-md font-bold">

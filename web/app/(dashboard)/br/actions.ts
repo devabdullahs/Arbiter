@@ -88,6 +88,19 @@ function parseTeams(raw: string) {
     });
 }
 
+function uniqueFormIds(formData: FormData, key: string) {
+  const seen = new Set<string>();
+  return formData
+    .getAll(key)
+    .map((value) => String(value).trim())
+    .filter(Boolean)
+    .filter((value) => {
+      if (seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+}
+
 function parsePlacementPoints(raw: string) {
   const values = raw
     .split(/[\n,\s]+/)
@@ -196,8 +209,37 @@ export async function createWebBrLobby(formData: FormData) {
   if (!organizationId) throw new Error("Organization is required.");
 
   const auth = await requireOrgRole(organizationId, MANAGER_ROLES);
-  const teams = parseTeams(cleanText(formData.get("teams"), 3000));
-  if (teams.length < 2) throw new Error("Add at least two teams.");
+  const selectedTeamIds = uniqueFormIds(formData, "teamIds");
+  const selectedTeams = selectedTeamIds.length
+    ? await prisma.team.findMany({
+        where: { organizationId, id: { in: selectedTeamIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  if (selectedTeams.length !== selectedTeamIds.length) {
+    throw new Error("One or more selected teams are not in this organization.");
+  }
+  const selectedTeamsById = new Map(selectedTeams.map((team) => [team.id, team]));
+  const teamSeeds: { name: string; linkedTeamId?: string }[] = [];
+  const seenNames = new Set<string>();
+
+  for (const id of selectedTeamIds) {
+    const team = selectedTeamsById.get(id);
+    if (!team) continue;
+    const key = team.name.toLowerCase();
+    if (seenNames.has(key)) continue;
+    seenNames.add(key);
+    teamSeeds.push({ name: team.name, linkedTeamId: team.id });
+  }
+
+  for (const name of parseTeams(cleanText(formData.get("teams"), 3000))) {
+    const key = name.toLowerCase();
+    if (seenNames.has(key)) continue;
+    seenNames.add(key);
+    teamSeeds.push({ name });
+  }
+
+  if (teamSeeds.length < 2) throw new Error("Select or enter at least two teams.");
 
   const lobby = await prisma.$transaction(async (tx) => {
     const created = await tx.brLobby.create({
@@ -213,7 +255,11 @@ export async function createWebBrLobby(formData: FormData) {
           cleanText(formData.get("placementPoints"), 1000),
         ),
         teams: {
-          create: teams.map((name, index) => ({ name, seed: index + 1 })),
+          create: teamSeeds.map((team, index) => ({
+            name: team.name,
+            linkedTeamId: team.linkedTeamId,
+            seed: index + 1,
+          })),
         },
       },
       select: { id: true, publicCode: true, name: true },
@@ -226,7 +272,11 @@ export async function createWebBrLobby(formData: FormData) {
         action: "web.br.create",
         targetType: "br_lobby",
         targetId: created.id,
-        metadata: { publicCode: created.publicCode, teams: teams.length },
+        metadata: {
+          publicCode: created.publicCode,
+          teams: teamSeeds.length,
+          linkedTeams: teamSeeds.filter((team) => team.linkedTeamId).length,
+        },
       },
     });
 

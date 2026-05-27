@@ -30,23 +30,34 @@ export default async function BrLobbiesPage() {
     );
   }
 
-  const lobbies = await prisma.brLobby.findMany({
-    where: { organizationId: { in: ctx.orgIds } },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    select: {
-      id: true,
-      publicCode: true,
-      name: true,
-      game: true,
-      status: true,
-      gamesPlanned: true,
-      channelId: true,
-      createdAt: true,
-      organization: { select: { discordGuildId: true, name: true } },
-      _count: { select: { teams: true } },
-    },
-  });
+  const [lobbies, teams] = await Promise.all([
+    prisma.brLobby.findMany({
+      where: { organizationId: { in: ctx.orgIds } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        publicCode: true,
+        name: true,
+        game: true,
+        status: true,
+        gamesPlanned: true,
+        channelId: true,
+        createdAt: true,
+        organization: { select: { discordGuildId: true, name: true } },
+        _count: { select: { teams: true } },
+      },
+    }),
+    prisma.team.findMany({
+      where: { organizationId: { in: ctx.orgIds } },
+      orderBy: [{ organization: { name: "asc" } }, { name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        organization: { select: { id: true, name: true } },
+      },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -57,13 +68,17 @@ export default async function BrLobbiesPage() {
       <Card>
         <CardContent className="space-y-3 py-4">
           <h2 className="text-sm font-medium">Create BR lobby</h2>
+          <p className="text-muted-foreground text-sm">
+            Select registered teams to link the lobby to rosters, then add any
+            extra invite teams below.
+          </p>
           <form action={createWebBrLobby} className="grid gap-3 lg:grid-cols-6">
             <select
               name="organizationId"
-              defaultValue={ctx.activeOrg?.id ?? ctx.orgs[0]?.id}
+              defaultValue={ctx.activeStaffOrg?.id ?? ctx.staffOrgs[0]?.id}
               className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
             >
-              {ctx.orgs.map((org) => (
+              {ctx.staffOrgs.map((org) => (
                 <option key={org.id} value={org.id}>
                   {org.name}
                 </option>
@@ -105,16 +120,30 @@ export default async function BrLobbiesPage() {
             />
             <textarea
               name="teams"
-              required
-              placeholder="Teams, one per line"
+              placeholder="Extra teams, one per line"
               maxLength={3000}
               className="border-input bg-background min-h-28 rounded-lg border px-2.5 py-2 text-sm lg:col-span-4"
             />
+            <label className="space-y-1 lg:col-span-2">
+              <span className="text-xs font-medium">Registered teams</span>
+              <select
+                name="teamIds"
+                multiple
+                size={Math.min(12, Math.max(5, teams.length))}
+                className="border-input bg-background min-h-28 w-full rounded-lg border px-2.5 py-2 text-sm"
+              >
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.organization.name} / {team.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <textarea
               name="placementPoints"
               placeholder="Optional placement points: 12,9,7,5..."
               maxLength={1000}
-              className="border-input bg-background min-h-28 rounded-lg border px-2.5 py-2 text-sm lg:col-span-2"
+              className="border-input bg-background min-h-28 rounded-lg border px-2.5 py-2 text-sm lg:col-span-4"
             />
             <Button type="submit" className="lg:col-start-6">
               Create

@@ -58,15 +58,37 @@ export async function createWebMatch(formData: FormData) {
   if (!organizationId) throw new Error("Organization is required.");
 
   const auth = await requireOrgRole(organizationId, MANAGER_ROLES);
-  const teamAName = cleanText(formData.get("teamAName"));
-  const teamBName = cleanText(formData.get("teamBName"));
+  const teamAId = cleanText(formData.get("teamAId"), 80);
+  const teamBId = cleanText(formData.get("teamBId"), 80);
   const bestOf = cleanBestOf(formData.get("bestOf"));
   const rulesPreset = cleanText(formData.get("rulesPreset"), 40) || "generic";
   const vetoMode = cleanText(formData.get("vetoMode"), 40) || "series_picks";
   const mapPool = parseMapPool(cleanText(formData.get("mapPool"), 2000), rulesPreset);
 
+  if (teamAId && teamBId && teamAId === teamBId) {
+    throw new Error("Select two different teams.");
+  }
+
+  const selectedTeams = teamAId || teamBId
+    ? await prisma.team.findMany({
+        where: {
+          organizationId,
+          id: { in: [teamAId, teamBId].filter(Boolean) },
+        },
+        select: { id: true, name: true },
+      })
+    : [];
+  const teamsById = new Map(selectedTeams.map((team) => [team.id, team]));
+  const teamA = teamAId ? teamsById.get(teamAId) : null;
+  const teamB = teamBId ? teamsById.get(teamBId) : null;
+  if (teamAId && !teamA) throw new Error("Team A is not in this organization.");
+  if (teamBId && !teamB) throw new Error("Team B is not in this organization.");
+
+  const teamAName = teamA?.name ?? cleanText(formData.get("teamAName"));
+  const teamBName = teamB?.name ?? cleanText(formData.get("teamBName"));
+
   if (!teamAName || !teamBName) {
-    throw new Error("Both team names are required.");
+    throw new Error("Select existing teams or enter both custom team names.");
   }
 
   const match = await prisma.$transaction(async (tx) => {
@@ -86,6 +108,16 @@ export async function createWebMatch(formData: FormData) {
       select: { id: true, publicCode: true },
     });
 
+    const participants = [
+      teamA ? { matchId: created.id, teamId: teamA.id, slot: "teamA" } : null,
+      teamB ? { matchId: created.id, teamId: teamB.id, slot: "teamB" } : null,
+    ].filter((entry): entry is { matchId: string; teamId: string; slot: string } =>
+      Boolean(entry),
+    );
+    if (participants.length) {
+      await tx.matchParticipant.createMany({ data: participants });
+    }
+
     await tx.auditLog.create({
       data: {
           organizationId,
@@ -93,7 +125,15 @@ export async function createWebMatch(formData: FormData) {
           action: "web.match.create",
           targetType: "match",
           targetId: created.id,
-          metadata: { publicCode: created.publicCode, teamAName, teamBName, bestOf, rulesPreset },
+          metadata: {
+            publicCode: created.publicCode,
+            teamAName,
+            teamBName,
+            teamAId: teamA?.id,
+            teamBId: teamB?.id,
+            bestOf,
+            rulesPreset,
+          },
         },
       });
 

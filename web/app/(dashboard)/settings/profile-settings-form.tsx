@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   AtSign,
@@ -16,27 +17,38 @@ import { Input } from "@/components/ui/input";
 import { updateUserSettings } from "./actions";
 import { FIELD_ROLE_OPTIONS, GAME_OPTIONS } from "./options";
 
-const COUNTRIES = [
+const FALLBACK_COUNTRIES = [
+  "SA",
+  "AE",
+  "BH",
+  "KW",
+  "QA",
+  "OM",
+  "EG",
+  "JO",
+  "US",
+  "GB",
+  "DE",
+  "FR",
+  "ES",
+  "TR",
+  "IN",
+  "PK",
+  "PH",
+  "MY",
+];
+const intlWithRegions = Intl as typeof Intl & {
+  supportedValuesOf?: (key: string) => string[];
+};
+const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+const COUNTRY_OPTIONS = [
   ["", "Select country"],
-  ["SA", "Saudi Arabia"],
-  ["AE", "United Arab Emirates"],
-  ["BH", "Bahrain"],
-  ["KW", "Kuwait"],
-  ["QA", "Qatar"],
-  ["OM", "Oman"],
-  ["EG", "Egypt"],
-  ["JO", "Jordan"],
-  ["US", "United States"],
-  ["GB", "United Kingdom"],
-  ["DE", "Germany"],
-  ["FR", "France"],
-  ["ES", "Spain"],
-  ["TR", "Turkey"],
-  ["IN", "India"],
-  ["PK", "Pakistan"],
-  ["PH", "Philippines"],
-  ["MY", "Malaysia"],
-  ["OTHER", "Other"],
+  ...(
+    intlWithRegions.supportedValuesOf?.("region") ?? FALLBACK_COUNTRIES
+  )
+    .filter((code) => /^[A-Z]{2}$/.test(code))
+    .map((code) => [code, regionNames.of(code) ?? code] as [string, string])
+    .sort((a, b) => a[1].localeCompare(b[1])),
 ] as const;
 
 type ProfileSettings = {
@@ -133,6 +145,7 @@ function SocialInput({
 export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
   const selectedGames = new Set(profile.gameExperiences);
   const selectedRoles = new Set(profile.fieldRoles);
+  const [bioLength, setBioLength] = useState(profile.bio.length);
 
   return (
     <form action={updateUserSettings} className="space-y-6">
@@ -183,8 +196,8 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
             defaultValue={profile.countryCode}
             className="border-input bg-background h-8 w-full rounded-lg border px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            {COUNTRIES.map(([value, label]) => (
-              <option key={value} value={value === "OTHER" ? "" : value}>
+            {COUNTRY_OPTIONS.map(([value, label]) => (
+              <option key={value} value={value}>
                 {label}
               </option>
             ))}
@@ -200,10 +213,12 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
           maxLength={500}
           rows={4}
           placeholder="Briefly describe your event experience, games, languages, and strengths."
+          onChange={(event) => setBioLength(event.currentTarget.value.length)}
           className="border-input bg-background min-h-24 w-full resize-y rounded-lg border px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         />
-        <span className="text-muted-foreground block text-xs">
-          Maximum 500 characters.
+        <span className="text-muted-foreground flex items-center justify-between gap-3 text-xs">
+          <span>Maximum 500 characters.</span>
+          <span className="tabular-nums">{bioLength}/500</span>
         </span>
       </label>
 
@@ -215,7 +230,7 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="space-y-2">
+          <label className="space-y-2 sm:col-span-2">
             <span className="flex items-center gap-2 text-sm font-medium">
               <Mail className="size-4" />
               Public email
@@ -242,6 +257,22 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
               </span>
             </span>
           </label>
+          <label className="flex min-h-20 items-center gap-3 rounded-lg border p-3">
+            <input
+              type="checkbox"
+              name="openToWork"
+              defaultChecked={profile.openToWork}
+              className="size-4"
+            />
+            <span>
+              <span className="block text-sm font-medium">Open to work</span>
+              <span className="text-muted-foreground block text-sm">
+                Let organization owners find you in worker discovery.
+              </span>
+            </span>
+          </label>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
           <SocialInput
             name="linkedin"
             label="LinkedIn"
@@ -289,20 +320,6 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
             <option value="connections">Connections only</option>
             <option value="public">Public</option>
           </select>
-        </label>
-        <label className="flex min-h-20 items-center gap-3 rounded-lg border p-3">
-          <input
-            type="checkbox"
-            name="openToWork"
-            defaultChecked={profile.openToWork}
-            className="size-4"
-          />
-          <span>
-            <span className="block text-sm font-medium">Open to work</span>
-            <span className="text-muted-foreground block text-sm">
-              Let organization owners find you in worker discovery.
-            </span>
-          </span>
         </label>
       </div>
 

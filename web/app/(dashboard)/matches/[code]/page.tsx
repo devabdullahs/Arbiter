@@ -77,23 +77,66 @@ export default async function MatchDetailPage({
       warnings: { orderBy: { createdAt: "desc" } },
       evidence: { orderBy: { createdAt: "desc" } },
       rosterSubmissions: { orderBy: { teamSlot: "asc" } },
+      checkins: {
+        include: {
+          userProfile: {
+            select: { id: true, displayName: true, discordUserId: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+      participants: {
+        include: {
+          team: {
+            include: {
+              members: {
+                include: {
+                  userProfile: {
+                    select: { id: true, displayName: true, discordUserId: true },
+                  },
+                },
+                orderBy: { createdAt: "asc" },
+              },
+            },
+          },
+        },
+        orderBy: { slot: "asc" },
+      },
       organization: { select: { discordGuildId: true, name: true } },
     },
   });
 
   if (!match) notFound();
   const canManage = ctx.orgIds.includes(match.organizationId);
+  const latestCheckinByProfile = new Map<string, (typeof match.checkins)[number]>();
+  for (const checkin of match.checkins) {
+    if (!latestCheckinByProfile.has(checkin.userProfileId)) {
+      latestCheckinByProfile.set(checkin.userProfileId, checkin);
+    }
+  }
+  const linkedRosterCount = match.participants.reduce(
+    (count, participant) =>
+      count +
+      participant.team.members.filter((member) => Boolean(member.userProfileId)).length,
+    0,
+  );
+  const checkedInCount = new Set(match.checkins.map((checkin) => checkin.userProfileId)).size;
+  const participantLabel = (slot: string, fallback: string) => {
+    if (slot === "teamA") return match.teamAName;
+    if (slot === "teamB") return match.teamBName;
+    return fallback;
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PageHeader
           title={`${match.teamAName} vs ${match.teamBName}`}
-          description={`Bo${match.bestOf} · ${match.rulesPreset} · created ${fmt(match.createdAt)}`}
+          description={`Bo${match.bestOf} / ${match.rulesPreset} / created ${fmt(match.createdAt)}`}
         />
         <div className="flex items-center gap-2">
           <span className="font-mono text-2xl tabular-nums">
-            {match.teamAScore}&ndash;{match.teamBScore}
+            {match.teamAScore}-{match.teamBScore}
           </span>
           <StatusBadge status={match.status} />
         </div>
@@ -106,6 +149,81 @@ export default async function MatchDetailPage({
           </CardContent>
         </Card>
       ) : null}
+
+      <Card>
+        <CardContent className="space-y-4 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-medium">Pre-match status</h2>
+              <p className="text-muted-foreground text-sm">
+                Players check in from the player dashboard using match code{" "}
+                <span className="font-mono">{match.publicCode}</span>.
+              </p>
+            </div>
+            {match.participants.length === 0 ? (
+              <Badge variant="outline">Teams not linked</Badge>
+            ) : linkedRosterCount > 0 && checkedInCount >= linkedRosterCount ? (
+              <Badge>Ready</Badge>
+            ) : (
+              <Badge variant="outline">Waiting for check-ins</Badge>
+            )}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border p-3">
+              <p className="text-muted-foreground text-xs">Linked teams</p>
+              <p className="text-lg font-semibold tabular-nums">
+                {match.participants.length}/2
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-muted-foreground text-xs">Player check-ins</p>
+              <p className="text-lg font-semibold tabular-nums">
+                {checkedInCount}/{linkedRosterCount || 0}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-muted-foreground text-xs">Roster lock</p>
+              <p className="text-sm font-medium">
+                {match.rosterLockedAt ? fmt(match.rosterLockedAt) : "Not locked"}
+              </p>
+            </div>
+          </div>
+          {match.participants.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              This match was created with custom names. Create future matches by
+              selecting registered teams to unlock roster and check-in tracking.
+            </p>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {match.participants.map((participant) => {
+                const linkedMembers = participant.team.members.filter((member) =>
+                  Boolean(member.userProfileId),
+                );
+                const teamCheckins = linkedMembers.filter((member) =>
+                  member.userProfileId
+                    ? latestCheckinByProfile.has(member.userProfileId)
+                    : false,
+                ).length;
+                return (
+                  <div key={participant.id} className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium">
+                        {participantLabel(participant.slot, participant.team.name)}
+                      </p>
+                      <Badge variant="outline">
+                        {teamCheckins}/{linkedMembers.length} checked in
+                      </Badge>
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      Registered as {participant.team.name}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {canManage ? (
         <Card>
@@ -149,8 +267,11 @@ export default async function MatchDetailPage({
         </Card>
       )}
 
-      <Tabs defaultValue="veto">
+      <Tabs defaultValue="prematch">
         <TabsList className="flex-wrap">
+          <TabsTrigger value="prematch">
+            Check-ins ({match.checkins.length})
+          </TabsTrigger>
           <TabsTrigger value="veto">Veto ({match.vetoActions.length})</TabsTrigger>
           <TabsTrigger value="scores">
             Scores ({match.scoreReports.length})
@@ -168,6 +289,27 @@ export default async function MatchDetailPage({
             Rosters ({match.rosterSubmissions.length})
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="prematch">
+          <SimpleTable
+            head={["Team", "Player", "Game account", "Status", "When"]}
+            rows={match.participants.flatMap((participant) =>
+              participant.team.members.map((member) => {
+                const checkin = member.userProfileId
+                  ? latestCheckinByProfile.get(member.userProfileId)
+                  : null;
+                return [
+                  participantLabel(participant.slot, participant.team.name),
+                  member.displayName,
+                  checkin?.gameAccount ?? "-",
+                  checkin ? "Checked in" : "Missing",
+                  checkin ? fmt(checkin.createdAt) : "-",
+                ];
+              }),
+            )}
+            empty="No linked roster members for check-in tracking."
+          />
+        </TabsContent>
 
         <TabsContent value="veto">
           <SimpleTable
@@ -191,10 +333,10 @@ export default async function MatchDetailPage({
           <SimpleTable
             head={["Score", "Type", "Status", "Comment", "When"]}
             rows={match.scoreReports.map((s) => [
-              `${s.teamAScore}–${s.teamBScore}`,
+              `${s.teamAScore}-${s.teamBScore}`,
               s.scoringType,
               s.status,
-              s.comment ?? "—",
+              s.comment ?? "-",
               fmt(s.createdAt),
             ])}
             empty="No score reports."
@@ -206,7 +348,7 @@ export default async function MatchDetailPage({
             head={["Type", "Team", "Minutes", "Reason", "When"]}
             rows={match.pauseLogs.map((p) => [
               p.pauseType,
-              p.teamName ?? "—",
+              p.teamName ?? "-",
               String(p.durationMinutes),
               p.reason,
               fmt(p.createdAt),
@@ -220,9 +362,9 @@ export default async function MatchDetailPage({
             head={["Player", "Team", "Rule", "Note", "When"]}
             rows={match.warnings.map((w) => [
               w.player,
-              w.teamName ?? "—",
+              w.teamName ?? "-",
               w.rule,
-              w.note ?? "—",
+              w.note ?? "-",
               fmt(w.createdAt),
             ])}
             empty="No warnings issued."
@@ -257,7 +399,7 @@ export default async function MatchDetailPage({
                         <TableCell>
                           <Badge variant="outline">{e.status}</Badge>
                         </TableCell>
-                        <TableCell>{e.note ?? "—"}</TableCell>
+                        <TableCell>{e.note ?? "-"}</TableCell>
                         <TableCell>
                           <a
                             href={e.url}

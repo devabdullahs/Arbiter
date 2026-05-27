@@ -37,6 +37,7 @@ export default async function SettingsPage({
           socialLinks: true,
           gameExperiences: true,
           fieldRoles: true,
+          updatedAt: true,
         },
       })
     : null;
@@ -63,6 +64,7 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <ProfileSettingsForm
+            key={profile?.updatedAt.toISOString() ?? discordId ?? session.user.id}
             profile={{
               displayName:
                 profile?.displayName ?? session.user.name ?? session.user.email ?? "",
