@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { getAccessContext } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
@@ -140,10 +141,9 @@ export default async function EvidencePage({
               defaultValue={query}
               placeholder="Search by match code, team, note, URL, or org"
             />
-            <select
+            <NativeSelect
               name="status"
               defaultValue={status}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
             >
               <option value="">Any status</option>
               {STATUSES.map((entry) => (
@@ -151,18 +151,17 @@ export default async function EvidencePage({
                   {entry}
                 </option>
               ))}
-            </select>
-            <select
+            </NativeSelect>
+            <NativeSelect
               name="perPage"
               defaultValue={String(pageSize)}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
             >
               {PAGE_SIZE_OPTIONS.map((entry) => (
                 <option key={entry} value={entry}>
                   {entry} per page
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             <Button type="submit">Search</Button>
           </form>
         </CardContent>

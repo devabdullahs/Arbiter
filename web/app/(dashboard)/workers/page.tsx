@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { NoOrgAccess, PageHeader } from "@/components/dashboard-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { NativeSelect } from "@/components/ui/native-select";
 import { getAccessContext } from "@/lib/auth-session";
 import { OrgMemberRole } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/prisma";
@@ -173,10 +175,10 @@ export default async function WorkersPage({
                       className="grid gap-2 sm:grid-cols-[1fr_auto]"
                     >
                       <input type="hidden" name="memberId" value={member.id} />
-                      <select
+                      <NativeSelect
                         name="role"
                         defaultValue={member.role}
-                        className="border-input bg-background h-8 rounded-lg border px-2.5 text-sm"
+                        className="h-8"
                         disabled={member.userProfileId === viewer?.id}
                       >
                         {canPromoteOwner ? (
@@ -185,7 +187,7 @@ export default async function WorkersPage({
                         <option value={OrgMemberRole.ADMIN}>Admin</option>
                         <option value={OrgMemberRole.REFEREE}>Referee</option>
                         <option value={OrgMemberRole.PLAYER}>Player</option>
-                      </select>
+                      </NativeSelect>
                       <Button
                         type="submit"
                         variant="outline"
@@ -196,14 +198,18 @@ export default async function WorkersPage({
                     </form>
                     <form action={removeOrgMember}>
                       <input type="hidden" name="memberId" value={member.id} />
-                      <Button
+                      <ConfirmSubmitButton
                         type="submit"
                         variant="destructive"
                         className="w-full"
                         disabled={member.userProfileId === viewer?.id}
+                        confirmMessage={`Remove ${
+                          member.userProfile.displayName ??
+                          member.userProfile.discordUserId
+                        } from this organization?`}
                       >
                         Remove from org
-                      </Button>
+                      </ConfirmSubmitButton>
                     </form>
                   </div>
                 ) : null}
@@ -267,10 +273,9 @@ export default async function WorkersPage({
             <Card>
               <CardContent className="py-4">
                 <form className="grid gap-3 md:grid-cols-4">
-                  <select
+                  <NativeSelect
                     name="game"
                     defaultValue={game}
-                    className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
                   >
                     <option value="">All games</option>
                     {GAME_OPTIONS.map((option) => (
@@ -278,11 +283,10 @@ export default async function WorkersPage({
                         {option}
                       </option>
                     ))}
-                  </select>
-                  <select
+                  </NativeSelect>
+                  <NativeSelect
                     name="role"
                     defaultValue={role}
-                    className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
                   >
                     <option value="">All roles</option>
                     {FIELD_ROLE_OPTIONS.map((option) => (
@@ -290,7 +294,7 @@ export default async function WorkersPage({
                         {option}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                   <input
                     name="country"
                     defaultValue={country}

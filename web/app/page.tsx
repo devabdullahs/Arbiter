@@ -2,14 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
+  CheckCircle2,
   ClipboardCheck,
   Database,
   GitBranch,
+  MessageSquareWarning,
   ShieldCheck,
+  Table2,
   Trophy,
   Users,
 } from "lucide-react";
 
+import { PublicFooter, PublicHeader } from "@/components/public-shell";
 import { Button } from "@/components/ui/button";
 import { siteDescription, siteKeywords, siteName } from "@/lib/site";
 
@@ -44,8 +48,8 @@ const features = [
     icon: Database,
   },
   {
-    title: "Self-hosted control",
-    body: "Use Postgres, Prisma, Discord.js, and Docker so organizations can review the code and host their own instance.",
+    title: "Hosted or self-hosted",
+    body: "Use the hosted version for convenience, or run Postgres, Prisma, Discord.js, and Docker on your own infrastructure.",
     icon: ShieldCheck,
   },
   {
@@ -55,39 +59,35 @@ const features = [
   },
 ];
 
+const replacedItems = [
+  {
+    before: "Google Sheets",
+    after: "Live match, BR, warning, and penalty records",
+    icon: Table2,
+  },
+  {
+    before: "Unstructured pings",
+    after: "Referee calls routed from match and team rooms",
+    icon: MessageSquareWarning,
+  },
+  {
+    before: "Lost screenshots",
+    after: "Evidence vault tied to matches, teams, and rulings",
+    icon: Database,
+  },
+  {
+    before: "Manual audit trails",
+    after: "Searchable logs for scores, pauses, disputes, and closes",
+    icon: ClipboardCheck,
+  },
+];
+
 export default function LandingPage() {
   return (
     <main className="bg-background text-foreground">
-      <header className="border-b">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-          <Link href="/" className="flex items-center gap-3 font-semibold">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/arbiter-icon.png" alt="" className="size-8 rounded-md" />
-            <span>{siteName}</span>
-          </Link>
-          <nav className="flex items-center gap-3 text-sm text-muted-foreground">
-            <Link href="/about" className="hidden hover:text-foreground sm:inline">
-              About
-            </Link>
-            <a href="#features" className="hidden hover:text-foreground sm:inline">
-              Features
-            </a>
-            <a
-              href="https://github.com/devabdullahs/Arbiter"
-              target="_blank"
-              rel="noreferrer"
-              className="hidden hover:text-foreground sm:inline"
-            >
-              Source
-            </a>
-            <Button asChild size="sm">
-              <Link href="/login?callbackURL=%2Fdashboard">Sign in</Link>
-            </Button>
-          </nav>
-        </div>
-      </header>
+      <PublicHeader />
 
-      <section className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
+      <section className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:py-24">
         <div>
           <p className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-300">
             Discord esports operations
@@ -116,15 +116,58 @@ export default function LandingPage() {
             </Button>
           </div>
         </div>
-        <div className="rounded-lg border bg-muted/30 p-5">
-          <h2 className="text-lg font-semibold">What Arbiter replaces</h2>
-          <ul className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
-            <li>Scattered Google Sheets for scores, penalties, and warnings.</li>
-            <li>Unstructured Discord pings when players need a referee.</li>
-            <li>Lost screenshots after match rooms and dispute threads close.</li>
-            <li>Manual BR standings and tiebreak calculations.</li>
-            <li>Unclear audit trails after rulings, forfeits, or disputes.</li>
-          </ul>
+        <div className="rounded-lg border bg-muted/25 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-4 border-b pb-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Replaces
+              </p>
+              <h2 className="mt-2 text-xl font-semibold">
+                One desk instead of five tabs.
+              </h2>
+            </div>
+            <span className="rounded-full border px-3 py-1 text-xs font-medium text-cyan-600 dark:text-cyan-300">
+              Discord native
+            </span>
+          </div>
+
+          <div className="divide-y">
+            {replacedItems.map((item) => (
+              <div
+                key={item.before}
+                className="grid gap-3 py-4 sm:grid-cols-[minmax(0,0.9fr)_2rem_minmax(0,1.25fr)] sm:items-center"
+              >
+                <div className="flex min-h-12 items-center gap-3 text-muted-foreground">
+                  <item.icon className="size-4 shrink-0" />
+                  <span className="text-sm">{item.before}</span>
+                </div>
+                <div className="hidden min-h-12 items-center justify-center sm:flex">
+                  <ArrowRight className="size-4 text-muted-foreground" />
+                </div>
+                <div className="flex min-h-12 items-center gap-3">
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
+                  <span className="text-sm font-medium leading-5">
+                    {item.after}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-1 grid grid-cols-3 gap-3 border-t pt-4 text-center">
+            <div>
+              <p className="text-lg font-semibold">24/7</p>
+              <p className="text-xs text-muted-foreground">event logs</p>
+            </div>
+            <div>
+              <p className="text-lg font-semibold">BR</p>
+              <p className="text-xs text-muted-foreground">standings</p>
+            </div>
+            <div>
+              <p className="text-lg font-semibold">Audit</p>
+              <p className="text-xs text-muted-foreground">ready</p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -152,22 +195,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <p>{siteName} is open-source esports operations software.</p>
-          <div className="flex flex-wrap gap-4">
-            <Link href="/privacy" className="hover:text-foreground">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="hover:text-foreground">
-              Terms of Service
-            </Link>
-            <Link href="/login" className="hover:text-foreground">
-              Sign in
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </main>
   );
 }

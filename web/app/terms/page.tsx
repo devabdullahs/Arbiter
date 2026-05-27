@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PublicFooter, PublicHeader } from "@/components/public-shell";
 import { siteName, siteUrl } from "@/lib/site";
 
 const updatedAt = "May 27, 2026";
@@ -8,7 +9,7 @@ const updatedAt = "May 27, 2026";
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:
-    "Terms of Service for Arbiter, a self-hosted Discord esports referee and tournament operations bot.",
+    "Terms of Service for the hosted Arbiter Discord esports referee and tournament operations service.",
   alternates: {
     canonical: "/terms",
   },
@@ -16,26 +17,37 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <main className="mx-auto max-w-3xl px-5 py-12 sm:px-8">
-      <p className="text-muted-foreground text-sm">Last updated: {updatedAt}</p>
-      <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-        {siteName} Terms of Service
-      </h1>
-      <div className="text-muted-foreground mt-6 space-y-5 leading-7">
+    <main className="bg-background text-foreground">
+      <PublicHeader />
+      <article className="mx-auto max-w-3xl px-5 py-12 sm:px-8">
+        <Link
+          href="/"
+          className="text-muted-foreground hover:text-foreground text-sm"
+        >
+          Back to home
+        </Link>
+        <p className="text-muted-foreground mt-4 text-sm">
+          Last updated: {updatedAt}
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+          {siteName} Terms of Service
+        </h1>
+        <div className="text-muted-foreground mt-6 space-y-5 leading-7">
         <p>
-          These terms govern use of {siteName}, an open-source Discord esports
-          referee and tournament operations bot and dashboard. By using the bot,
-          dashboard, or a self-hosted deployment, you agree to use it lawfully
-          and responsibly.
+          These terms govern use of the hosted {siteName} Discord esports
+          referee and tournament operations service. The {siteName} codebase is
+          also open source; if you choose to self-host it, you operate your own
+          separate deployment and are responsible for that deployment.
         </p>
 
         <section className="space-y-2">
           <h2 className="text-foreground text-xl font-semibold">Service Use</h2>
           <p>
-            {siteName} helps tournament staff manage matches, battle-royale
-            lobbies, check-ins, scores, warnings, evidence, audit logs, and
-            related esports operations. You are responsible for the tournaments,
-            rulings, server permissions, and data you manage with the service.
+            The hosted {siteName} service helps tournament staff manage
+            matches, battle-royale lobbies, check-ins, scores, warnings,
+            evidence, audit logs, and related esports operations. You are
+            responsible for the tournaments, rulings, server permissions, and
+            data you manage with the service.
           </p>
         </section>
 
@@ -68,10 +80,11 @@ export default function TermsPage() {
             Self-Hosted Deployments
           </h2>
           <p>
-            {siteName} is open source and may be self-hosted. If you operate
-            your own deployment, you are responsible for its security, backups,
-            environment variables, database, uptime, data retention, and legal
-            obligations.
+            The open-source project may be self-hosted. A self-hosted
+            deployment is operated by its own administrator, not by the hosted
+            {siteName} service. If you operate your own deployment, you are
+            responsible for its security, backups, environment variables,
+            database, uptime, data retention, and legal obligations.
           </p>
         </section>
 
@@ -107,7 +120,9 @@ export default function TermsPage() {
             .
           </p>
         </section>
-      </div>
+        </div>
+      </article>
+      <PublicFooter />
     </main>
   );
 }

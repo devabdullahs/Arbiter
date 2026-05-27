@@ -75,17 +75,10 @@ function cleanOptionalGameNumber(value: FormDataEntryValue | null) {
 }
 
 function parseTeams(raw: string) {
-  const seen = new Set<string>();
   return raw
     .split(/[\n,]/)
     .map((entry) => entry.trim())
-    .filter(Boolean)
-    .filter((entry) => {
-      const key = entry.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    .filter(Boolean);
 }
 
 function uniqueFormIds(formData: FormData, key: string) {
@@ -205,6 +198,19 @@ async function saveBrEvidenceFile(lobbyId: string, value: FormDataEntryValue | n
 }
 
 export async function createWebBrLobby(formData: FormData) {
+  const lobby = await createWebBrLobbyRecord(formData);
+  redirect(`/br/${lobby.publicCode}`);
+}
+
+export type CreateWebBrLobbyState = {
+  error?: string;
+};
+
+function createLobbyError(error: unknown) {
+  return error instanceof Error ? error.message : "Could not create BR lobby.";
+}
+
+async function createWebBrLobbyRecord(formData: FormData) {
   const organizationId = String(formData.get("organizationId") ?? "");
   if (!organizationId) throw new Error("Organization is required.");
 
@@ -222,23 +228,37 @@ export async function createWebBrLobby(formData: FormData) {
   const selectedTeamsById = new Map(selectedTeams.map((team) => [team.id, team]));
   const teamSeeds: { name: string; linkedTeamId?: string }[] = [];
   const seenNames = new Set<string>();
+  const duplicateNames = new Set<string>();
 
   for (const id of selectedTeamIds) {
     const team = selectedTeamsById.get(id);
     if (!team) continue;
     const key = team.name.toLowerCase();
-    if (seenNames.has(key)) continue;
+    if (seenNames.has(key)) {
+      duplicateNames.add(team.name);
+      continue;
+    }
     seenNames.add(key);
     teamSeeds.push({ name: team.name, linkedTeamId: team.id });
   }
 
   for (const name of parseTeams(cleanText(formData.get("teams"), 3000))) {
     const key = name.toLowerCase();
-    if (seenNames.has(key)) continue;
+    if (seenNames.has(key)) {
+      duplicateNames.add(name);
+      continue;
+    }
     seenNames.add(key);
     teamSeeds.push({ name });
   }
 
+  if (duplicateNames.size) {
+    throw new Error(
+      `Duplicate team name${duplicateNames.size === 1 ? "" : "s"}: ${[
+        ...duplicateNames,
+      ].join(", ")}.`,
+    );
+  }
   if (teamSeeds.length < 2) throw new Error("Select or enter at least two teams.");
 
   const lobby = await prisma.$transaction(async (tx) => {
@@ -284,6 +304,20 @@ export async function createWebBrLobby(formData: FormData) {
   });
 
   revalidatePath("/br");
+  return lobby;
+}
+
+export async function createWebBrLobbyWithState(
+  _state: CreateWebBrLobbyState,
+  formData: FormData,
+): Promise<CreateWebBrLobbyState> {
+  let lobby: { publicCode: string };
+  try {
+    lobby = await createWebBrLobbyRecord(formData);
+  } catch (error) {
+    return { error: createLobbyError(error) };
+  }
+
   redirect(`/br/${lobby.publicCode}`);
 }
 
@@ -357,6 +391,28 @@ export async function submitWebBrResults(code: string, formData: FormData) {
   revalidatePath("/br");
 }
 
+export type BrActionState = {
+  error?: string;
+  success?: string;
+};
+
+function brActionError(error: unknown) {
+  return error instanceof Error ? error.message : "Action could not be saved.";
+}
+
+export async function submitWebBrResultsWithState(
+  code: string,
+  _state: BrActionState,
+  formData: FormData,
+): Promise<BrActionState> {
+  try {
+    await submitWebBrResults(code, formData);
+    return { success: "Game results saved." };
+  } catch (error) {
+    return { error: brActionError(error) };
+  }
+}
+
 export async function submitWebBrAdjustment(code: string, formData: FormData) {
   const { lobby, auth } = await loadBrLobbyForAction(code);
   const brTeamId = String(formData.get("brTeamId") ?? "");
@@ -396,6 +452,19 @@ export async function submitWebBrAdjustment(code: string, formData: FormData) {
 
   await enqueueDiscordBrRefresh(lobby.organizationId, lobby.id);
   revalidatePath(`/br/${lobby.publicCode}`);
+}
+
+export async function submitWebBrAdjustmentWithState(
+  code: string,
+  _state: BrActionState,
+  formData: FormData,
+): Promise<BrActionState> {
+  try {
+    await submitWebBrAdjustment(code, formData);
+    return { success: "Adjustment saved." };
+  } catch (error) {
+    return { error: brActionError(error) };
+  }
 }
 
 export async function submitWebBrLog(code: string, formData: FormData) {
@@ -459,6 +528,19 @@ export async function submitWebBrLog(code: string, formData: FormData) {
   revalidatePath(`/br/${lobby.publicCode}`);
 }
 
+export async function submitWebBrLogWithState(
+  code: string,
+  _state: BrActionState,
+  formData: FormData,
+): Promise<BrActionState> {
+  try {
+    await submitWebBrLog(code, formData);
+    return { success: "Referee log saved." };
+  } catch (error) {
+    return { error: brActionError(error) };
+  }
+}
+
 export async function updateWebBrStatus(code: string, formData: FormData) {
   const { lobby, auth } = await loadBrLobbyForAction(code);
   const status = cleanBrStatus(formData.get("status"));
@@ -497,4 +579,17 @@ export async function updateWebBrStatus(code: string, formData: FormData) {
   await enqueueDiscordBrRefresh(lobby.organizationId, lobby.id);
   revalidatePath(`/br/${lobby.publicCode}`);
   revalidatePath("/br");
+}
+
+export async function updateWebBrStatusWithState(
+  code: string,
+  _state: BrActionState,
+  formData: FormData,
+): Promise<BrActionState> {
+  try {
+    await updateWebBrStatus(code, formData);
+    return { success: "Lobby status updated." };
+  } catch (error) {
+    return { error: brActionError(error) };
+  }
 }

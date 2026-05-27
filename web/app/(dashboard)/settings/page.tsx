@@ -1,5 +1,9 @@
+import Link from "next/link";
+import { Eye } from "lucide-react";
+
 import { PageHeader } from "@/components/dashboard-ui";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -47,6 +51,23 @@ export default async function SettingsPage({
       <PageHeader
         title="Profile"
         description="Keep your referee profile accurate so assignments and handoffs are faster."
+        actions={
+          discordId ? (
+            <Button asChild variant="outline">
+              <Link href={`/profiles/${discordId}`}>
+                <Eye />
+                Preview profile
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild variant="outline">
+              <Link href="/security">
+                <Eye />
+                Link Discord to preview
+              </Link>
+            </Button>
+          )
+        }
       />
       {params.saved ? (
         <Badge variant="secondary" className="w-fit">

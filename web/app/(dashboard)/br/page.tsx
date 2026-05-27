@@ -15,7 +15,7 @@ import {
 import { getAccessContext } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
-import { createWebBrLobby } from "./actions";
+import { CreateBrLobbyForm } from "./create-br-lobby-form";
 
 export default async function BrLobbiesPage() {
   const ctx = await getAccessContext();
@@ -72,83 +72,11 @@ export default async function BrLobbiesPage() {
             Select registered teams to link the lobby to rosters, then add any
             extra invite teams below.
           </p>
-          <form action={createWebBrLobby} className="grid gap-3 lg:grid-cols-6">
-            <select
-              name="organizationId"
-              defaultValue={ctx.activeStaffOrg?.id ?? ctx.staffOrgs[0]?.id}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
-            >
-              {ctx.staffOrgs.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-            <input
-              name="name"
-              placeholder="Lobby name"
-              required
-              maxLength={80}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
-            />
-            <select
-              name="game"
-              defaultValue="Apex Legends"
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
-            >
-              <option>Apex Legends</option>
-              <option>Fortnite</option>
-              <option>PUBG Mobile</option>
-              <option>PUBG: Battlegrounds</option>
-              <option>Other</option>
-            </select>
-            <input
-              name="gamesPlanned"
-              type="number"
-              min={1}
-              max={50}
-              defaultValue={6}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
-            />
-            <input
-              name="killPoints"
-              type="number"
-              min={0}
-              max={20}
-              defaultValue={1}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
-            />
-            <textarea
-              name="teams"
-              placeholder="Extra teams, one per line"
-              maxLength={3000}
-              className="border-input bg-background min-h-28 rounded-lg border px-2.5 py-2 text-sm lg:col-span-4"
-            />
-            <label className="space-y-1 lg:col-span-2">
-              <span className="text-xs font-medium">Registered teams</span>
-              <select
-                name="teamIds"
-                multiple
-                size={Math.min(12, Math.max(5, teams.length))}
-                className="border-input bg-background min-h-28 w-full rounded-lg border px-2.5 py-2 text-sm"
-              >
-                {teams.map((team) => (
-                  <option key={team.id} value={team.id}>
-                    {team.organization.name} / {team.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <textarea
-              name="placementPoints"
-              placeholder="Optional placement points: 12,9,7,5..."
-              maxLength={1000}
-              className="border-input bg-background min-h-28 rounded-lg border px-2.5 py-2 text-sm lg:col-span-4"
-            />
-            <Button type="submit" className="lg:col-start-6">
-              Create
-            </Button>
-          </form>
+          <CreateBrLobbyForm
+            orgs={ctx.staffOrgs.map((org) => ({ id: org.id, name: org.name }))}
+            teams={teams}
+            defaultOrganizationId={ctx.activeStaffOrg?.id ?? ctx.staffOrgs[0]?.id}
+          />
         </CardContent>
       </Card>
       <div className="grid gap-3 md:hidden">

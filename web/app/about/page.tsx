@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ClipboardCheck, Database, ShieldCheck, Trophy } from "lucide-react";
 
+import { PublicFooter, PublicHeader } from "@/components/public-shell";
 import { Button } from "@/components/ui/button";
 import { siteDescription, siteKeywords, siteName } from "@/lib/site";
 
@@ -31,8 +32,8 @@ const features = [
     icon: Database,
   },
   {
-    title: "Self-hosted trust",
-    body: "Run the bot and dashboard on your own infrastructure with Postgres and Prisma, with no outside operator required.",
+    title: "Hosted or self-hosted",
+    body: "Use the hosted Arbiter service, or run the bot and dashboard on your own infrastructure with Postgres and Prisma.",
     icon: ShieldCheck,
   },
 ];
@@ -40,16 +41,7 @@ const features = [
 export default function AboutPage() {
   return (
     <main className="bg-background text-foreground">
-      <header className="border-b">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-          <Link href="/" className="font-semibold">
-            {siteName}
-          </Link>
-          <Button asChild size="sm">
-            <Link href="/login?callbackURL=%2Fdashboard">Sign in</Link>
-          </Button>
-        </div>
-      </header>
+      <PublicHeader />
 
       <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
         <p className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-300">
@@ -91,21 +83,7 @@ export default function AboutPage() {
           </article>
         ))}
       </section>
-      <footer className="border-t">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <Link href="/" className="hover:text-foreground">
-            Back to landing
-          </Link>
-          <div className="flex gap-4">
-            <Link href="/privacy" className="hover:text-foreground">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="hover:text-foreground">
-              Terms of Service
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </main>
   );
 }

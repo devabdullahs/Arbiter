@@ -13,39 +13,15 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 
 import { updateUserSettings } from "./actions";
-import { FIELD_ROLE_OPTIONS, GAME_OPTIONS } from "./options";
+import { COUNTRY_CODES, FIELD_ROLE_OPTIONS, GAME_OPTIONS } from "./options";
 
-const FALLBACK_COUNTRIES = [
-  "SA",
-  "AE",
-  "BH",
-  "KW",
-  "QA",
-  "OM",
-  "EG",
-  "JO",
-  "US",
-  "GB",
-  "DE",
-  "FR",
-  "ES",
-  "TR",
-  "IN",
-  "PK",
-  "PH",
-  "MY",
-];
-const intlWithRegions = Intl as typeof Intl & {
-  supportedValuesOf?: (key: string) => string[];
-};
 const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 const COUNTRY_OPTIONS = [
   ["", "Select country"],
-  ...(
-    intlWithRegions.supportedValuesOf?.("region") ?? FALLBACK_COUNTRIES
-  )
+  ...COUNTRY_CODES
     .filter((code) => /^[A-Z]{2}$/.test(code))
     .map((code) => [code, regionNames.of(code) ?? code] as [string, string])
     .sort((a, b) => a[1].localeCompare(b[1])),
@@ -191,17 +167,17 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
         </label>
         <label className="space-y-2">
           <span className="text-sm font-medium">Country</span>
-          <select
+          <NativeSelect
             name="countryCode"
             defaultValue={profile.countryCode}
-            className="border-input bg-background h-8 w-full rounded-lg border px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="h-8"
           >
             {COUNTRY_OPTIONS.map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
       </div>
 
@@ -311,15 +287,15 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-2">
           <span className="text-sm font-medium">Profile visibility</span>
-          <select
+          <NativeSelect
             name="profileVisibility"
             defaultValue={profile.profileVisibility}
-            className="border-input bg-background h-8 w-full rounded-lg border px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="h-8"
           >
             <option value="private">Private</option>
             <option value="connections">Connections only</option>
             <option value="public">Public</option>
-          </select>
+          </NativeSelect>
         </label>
       </div>
 

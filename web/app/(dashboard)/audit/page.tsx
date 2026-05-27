@@ -4,6 +4,7 @@ import { NoOrgAccess, PageHeader, SimpleTable } from "@/components/dashboard-ui"
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { getAccessContext } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
@@ -109,17 +110,16 @@ export default async function AuditPage({
               defaultValue={query}
               placeholder="Search by action, target, actor, or Discord ID"
             />
-            <select
+            <NativeSelect
               name="perPage"
               defaultValue={String(pageSize)}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
             >
               {PAGE_SIZE_OPTIONS.map((entry) => (
                 <option key={entry} value={entry}>
                   {entry} per page
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             <Button type="submit">Search</Button>
           </form>
         </CardContent>

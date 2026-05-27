@@ -65,6 +65,21 @@ export default async function BrLobbyDetailPage({
     (max, result) => Math.max(max, result.gameNumber),
     0,
   );
+  const latestResultByTeam = new Map<
+    string,
+    { gameNumber: number; placement: number; kills: number; points: number }
+  >();
+  for (const result of lobby.results) {
+    const previous = latestResultByTeam.get(result.brTeamId);
+    if (!previous || result.gameNumber > previous.gameNumber) {
+      latestResultByTeam.set(result.brTeamId, {
+        gameNumber: result.gameNumber,
+        placement: result.placement,
+        kills: result.kills,
+        points: result.points,
+      });
+    }
+  }
   const orderedResults = [...lobby.results].sort(
     (a, b) => a.gameNumber - b.gameNumber || b.points - a.points,
   );
@@ -98,8 +113,10 @@ export default async function BrLobbyDetailPage({
               id: team.id,
               name: team.name,
               seed: team.seed,
+              latestResult: latestResultByTeam.get(team.id) ?? null,
             }))}
             nextGameNumber={Math.min(gamesPlayed + 1, lobby.gamesPlanned)}
+            lastGameNumber={gamesPlayed || null}
           />
         </CardContent>
       </Card>

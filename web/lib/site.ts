@@ -1,7 +1,7 @@
 export const siteName = "Arbiter";
 
 export const siteDescription =
-  "Self-hosted Discord esports referee and tournament operations bot for match panels, BR lobbies, check-ins, evidence, audit logs, and referee workflows.";
+  "Discord esports referee and tournament operations platform for match panels, BR lobbies, check-ins, evidence, audit logs, and referee workflows. Available as a hosted service or open-source self-hosted code.";
 
 export const siteUrl = (
   process.env.NEXT_PUBLIC_SITE_URL ??

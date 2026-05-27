@@ -53,7 +53,15 @@ function parseMapPool(raw: string, rulesPreset: string) {
   return maps.length ? maps : PRESET_MAPS[rulesPreset] ?? DEFAULT_MAPS;
 }
 
-export async function createWebMatch(formData: FormData) {
+export type CreateWebMatchState = {
+  error?: string;
+};
+
+function actionError(error: unknown) {
+  return error instanceof Error ? error.message : "Could not create match.";
+}
+
+async function createWebMatchRecord(formData: FormData) {
   const organizationId = String(formData.get("organizationId") ?? "");
   if (!organizationId) throw new Error("Organization is required.");
 
@@ -141,5 +149,24 @@ export async function createWebMatch(formData: FormData) {
   });
 
   revalidatePath("/matches");
+  return match;
+}
+
+export async function createWebMatch(formData: FormData) {
+  const match = await createWebMatchRecord(formData);
+  redirect(`/matches/${match.publicCode}`);
+}
+
+export async function createWebMatchWithState(
+  _state: CreateWebMatchState,
+  formData: FormData,
+): Promise<CreateWebMatchState> {
+  let match: { publicCode: string };
+  try {
+    match = await createWebMatchRecord(formData);
+  } catch (error) {
+    return { error: actionError(error) };
+  }
+
   redirect(`/matches/${match.publicCode}`);
 }

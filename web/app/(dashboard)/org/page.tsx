@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { NoOrgAccess, PageHeader } from "@/components/dashboard-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { NativeSelect } from "@/components/ui/native-select";
 import { getAccessContext } from "@/lib/auth-session";
 import { botInviteUrl, listDiscordGuildOptions } from "@/lib/discord";
 import { OrgMemberRole } from "@/lib/generated/prisma";
@@ -262,13 +264,14 @@ export default async function OrgPage() {
                                     name="inviteId"
                                     value={invite.id}
                                   />
-                                  <Button
+                                  <ConfirmSubmitButton
                                     type="submit"
                                     size="sm"
                                     variant="ghost"
+                                    confirmMessage={`Revoke the invite for ${invite.email}?`}
                                   >
                                     Revoke
-                                  </Button>
+                                  </ConfirmSubmitButton>
                                 </form>
                               </TableCell>
                             </TableRow>
@@ -303,16 +306,17 @@ export default async function OrgPage() {
                       >
                         Role
                       </label>
-                      <select
+                      <NativeSelect
                         id={`invite-role-${org.id}`}
                         name="role"
                         defaultValue={OrgMemberRole.REFEREE}
-                        className="border-input bg-background mt-1 h-8 w-full rounded-lg border px-2.5 text-sm"
+                        className="h-8"
+                        wrapperClassName="mt-1"
                       >
                         <option value={OrgMemberRole.REFEREE}>Referee</option>
                         <option value={OrgMemberRole.ADMIN}>Admin</option>
                         <option value={OrgMemberRole.PLAYER}>Player</option>
-                      </select>
+                      </NativeSelect>
                     </div>
                     <Button type="submit">Send invite</Button>
                   </form>

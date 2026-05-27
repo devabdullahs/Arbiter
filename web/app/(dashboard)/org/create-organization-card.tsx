@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { DiscordGuildOption } from "@/lib/discord";
 
 import { createOrganization } from "./actions";
@@ -64,12 +65,12 @@ export function CreateOrganizationCard({
               <label htmlFor="create-org-server" className="text-sm font-medium">
                 Discord server
               </label>
-              <select
+              <NativeSelect
                 id="create-org-server"
                 name="selectedGuildId"
                 value={selectedGuildId}
                 onChange={(event) => setSelectedGuildId(event.target.value)}
-                className="border-input bg-background mt-1 h-9 w-full rounded-lg border px-2.5 text-sm"
+                wrapperClassName="mt-1"
               >
                 <option value="">
                   {guilds.length > 0
@@ -83,7 +84,7 @@ export function CreateOrganizationCard({
                     {guild.botConfigured ? " - already configured" : " - bot not set up"}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
               {needsReconnect ? (
                 <p className="text-muted-foreground mt-1 text-xs">
                   Reconnect Discord from Security to grant the `guilds` scope

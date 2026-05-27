@@ -6,8 +6,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PageHeader } from "@/components/dashboard-ui";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { LinkDiscordButton } from "@/components/link-discord";
-import { Button } from "@/components/ui/button";
 import { getLinkedDiscordId, getSession } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
@@ -57,9 +57,13 @@ export default async function SecurityPage() {
           </div>
           {discordId ? (
             <form action={unlinkDiscordAccount}>
-              <Button type="submit" variant="outline">
+              <ConfirmSubmitButton
+                type="submit"
+                variant="outline"
+                confirmMessage="Disconnect Discord from this dashboard account? You may lose organization access until you reconnect."
+              >
                 Disconnect Discord
-              </Button>
+              </ConfirmSubmitButton>
             </form>
           ) : (
             <LinkDiscordButton callbackURL="/security" />

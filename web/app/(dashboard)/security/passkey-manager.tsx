@@ -6,6 +6,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import { KeyRound, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { friendlyPasskeyError } from "@/lib/auth-errors";
@@ -67,20 +68,23 @@ export function PasskeyManager({ passkeys }: { passkeys: PasskeyRow[] }) {
     }
 
     setPending(true);
-    const res = await authClient.passkey.addPasskey({
-      name,
-    });
-    setPending(false);
-
-    if (res?.error) {
-      toast.error(friendlyPasskeyError(res.error.message));
-      return;
+    try {
+      const res = await authClient.passkey.addPasskey({ name });
+      if (res?.error) {
+        toast.error(friendlyPasskeyError(res.error.message));
+        return;
+      }
+      toast.success("Passkey registered. You can use it to sign in next time.");
+      setPasskeyName("");
+      setDialogOpen(false);
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        friendlyPasskeyError(error instanceof Error ? error.message : ""),
+      );
+    } finally {
+      setPending(false);
     }
-
-    toast.success("Passkey registered. You can use it to sign in next time.");
-    setPasskeyName("");
-    setDialogOpen(false);
-    router.refresh();
   }
 
   function handleCancelAdd() {
@@ -209,10 +213,19 @@ export function PasskeyManager({ passkeys }: { passkeys: PasskeyRow[] }) {
 
                 <form action={handleDelete}>
                   <input type="hidden" name="id" value={passkey.id} />
-                  <Button type="submit" variant="destructive" disabled={isMutating}>
+                  <ConfirmSubmitButton
+                    type="submit"
+                    variant="destructive"
+                    disabled={isMutating}
+                    confirmTitle="Delete passkey?"
+                    confirmMessage={`Delete the passkey "${
+                      passkey.name || "Unnamed passkey"
+                    }"? You will not be able to use it to sign in again.`}
+                    confirmActionLabel="Delete passkey"
+                  >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete
-                  </Button>
+                  </ConfirmSubmitButton>
                 </form>
               </div>
             </div>

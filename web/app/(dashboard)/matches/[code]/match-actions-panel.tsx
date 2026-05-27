@@ -4,6 +4,7 @@ import { ClipboardCheck, FileUp, Flag } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 
 import {
   submitWebEvidence,
@@ -64,16 +65,16 @@ export function MatchActionsPanel({
         </div>
         <label className="space-y-1">
           <span className="text-xs font-medium">Scoring type</span>
-          <select
+          <NativeSelect
             name="scoringType"
             defaultValue="match"
-            className="border-input bg-background h-8 w-full rounded-lg border px-2.5 text-sm"
+            className="h-8"
           >
             <option value="match">Whole match</option>
             <option value="map">Map/game</option>
             <option value="round">Round based</option>
             <option value="penalty">Penalty adjustment</option>
-          </select>
+          </NativeSelect>
         </label>
         <Input name="comment" placeholder="Optional score note" maxLength={500} />
         <Button type="submit" className="w-full">
@@ -120,16 +121,16 @@ export function MatchActionsPanel({
             Close, cancel, or flag a match for review.
           </p>
         </div>
-        <select
+        <NativeSelect
           name="status"
           defaultValue="COMPLETE"
-          className="border-input bg-background h-8 w-full rounded-lg border px-2.5 text-sm"
+          className="h-8"
         >
           <option value="LIVE">Live</option>
           <option value="DISPUTED">Disputed</option>
           <option value="COMPLETE">Complete</option>
           <option value="CANCELLED">Cancelled</option>
-        </select>
+        </NativeSelect>
         <textarea
           name="reason"
           rows={4}

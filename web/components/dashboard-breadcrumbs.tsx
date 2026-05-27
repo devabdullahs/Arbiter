@@ -12,7 +12,7 @@ const LABELS: Record<string, string> = {
   matches: "Matches",
   org: "Organization",
   player: "Player",
-  profiles: "Profiles",
+  profiles: "Profile",
   referees: "Referees",
   security: "Login & Security",
   settings: "Profile",
@@ -40,7 +40,10 @@ function crumbsForPath(pathname: string): Crumb[] {
 
   for (const segment of segments) {
     href += `/${segment}`;
-    crumbs.push({ href, label: segmentLabel(segment) });
+    crumbs.push({
+      href: segment === "profiles" ? "/settings" : href,
+      label: segmentLabel(segment),
+    });
   }
 
   return crumbs;

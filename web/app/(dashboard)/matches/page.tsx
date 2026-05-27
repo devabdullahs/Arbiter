@@ -15,7 +15,7 @@ import {
 import { getAccessContext } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
-import { createWebMatch } from "./actions";
+import { CreateMatchForm } from "./create-match-form";
 
 export default async function MatchesPage() {
   const ctx = await getAccessContext();
@@ -73,95 +73,11 @@ export default async function MatchesPage() {
             Select existing teams to link rosters and player check-ins. Use
             custom names only for one-off matches.
           </p>
-          <form action={createWebMatch} className="grid gap-3 lg:grid-cols-6">
-            <select
-              name="organizationId"
-              defaultValue={ctx.activeStaffOrg?.id ?? ctx.staffOrgs[0]?.id}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
-            >
-              {ctx.staffOrgs.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-            <select
-              name="teamAId"
-              defaultValue=""
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
-            >
-              <option value="">Team A: custom name</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.organization.name} / {team.name}
-                </option>
-              ))}
-            </select>
-            <select
-              name="teamBId"
-              defaultValue=""
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
-            >
-              <option value="">Team B: custom name</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.organization.name} / {team.name}
-                </option>
-              ))}
-            </select>
-            <input
-              name="teamAName"
-              placeholder="Custom Team A name"
-              maxLength={80}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
-            />
-            <input
-              name="teamBName"
-              placeholder="Custom Team B name"
-              maxLength={80}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
-            />
-            <input
-              name="bestOf"
-              type="number"
-              min={1}
-              max={99}
-              defaultValue={3}
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
-            />
-            <select
-              name="rulesPreset"
-              defaultValue="generic"
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
-            >
-              <option value="generic">Generic</option>
-              <option value="valorant">Valorant</option>
-              <option value="overwatch">Overwatch</option>
-              <option value="r6s">Rainbow Six Siege</option>
-              <option value="cod">Call of Duty</option>
-              <option value="rocket_league">Rocket League</option>
-            </select>
-            <Button type="submit">Create</Button>
-            <textarea
-              name="mapPool"
-              placeholder="Optional custom map pool, comma-separated or one per line"
-              maxLength={2000}
-              className="border-input bg-background min-h-20 rounded-lg border px-2.5 py-2 text-sm lg:col-span-4"
-            />
-            <select
-              name="vetoMode"
-              defaultValue="series_picks"
-              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
-            >
-              <option value="series_picks">Series picks</option>
-              <option value="final_map_ban">Final map ban</option>
-              <option value="manual_picks">Manual picks</option>
-            </select>
-            <label className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm">
-              <input type="checkbox" name="allowPlayerReports" />
-              Player reports
-            </label>
-          </form>
+          <CreateMatchForm
+            orgs={ctx.staffOrgs.map((org) => ({ id: org.id, name: org.name }))}
+            teams={teams}
+            defaultOrganizationId={ctx.activeStaffOrg?.id ?? ctx.staffOrgs[0]?.id}
+          />
         </CardContent>
       </Card>
       <div className="grid gap-3 md:hidden">

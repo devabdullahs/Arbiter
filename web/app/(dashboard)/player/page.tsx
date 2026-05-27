@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { PageHeader, StatusBadge } from "@/components/dashboard-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { MatchStatus } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import { requireUserProfile } from "@/lib/web-authz";
@@ -258,16 +260,16 @@ export default async function PlayerDashboardPage() {
                 action={createPlayerTeam}
                 className="grid gap-3 md:grid-cols-[1fr_1fr_auto]"
               >
-                <select
+                <NativeSelect
                   name="organizationId"
-                  className="border-input bg-background h-8 rounded-lg border px-2.5 text-sm"
+                  className="h-8"
                 >
                   {memberships.map((membership) => (
                     <option key={membership.id} value={membership.organization.id}>
                       {membership.organization.name}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
                 <Input name="name" placeholder="Team name" maxLength={80} required />
                 <Button type="submit">Create</Button>
               </form>
@@ -336,9 +338,14 @@ export default async function PlayerDashboardPage() {
                         member.userProfileId !== profile.id ? (
                           <form action={removeTeamMember}>
                             <input type="hidden" name="memberId" value={member.id} />
-                            <Button type="submit" variant="ghost" size="sm">
+                            <ConfirmSubmitButton
+                              type="submit"
+                              variant="ghost"
+                              size="sm"
+                              confirmMessage={`Remove ${member.displayName} from ${team.name}?`}
+                            >
                               Remove
-                            </Button>
+                            </ConfirmSubmitButton>
                           </form>
                         ) : null}
                       </div>
