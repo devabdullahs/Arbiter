@@ -124,6 +124,18 @@ User-installed commands are intentionally safer than guild-installed admin comma
 - User-installed commands never create channels, manage roles, close matches, or mutate admin state
   unless a valid org/match context exists and the user is authorized.
 
+### Web Dashboard
+
+The `web/` app is a Next.js dashboard for organizers and referees who want a browser view alongside
+Discord.
+
+- Better Auth powers Discord OAuth, magic links, email OTP, passkeys, and app-level superadmin tools.
+- Discord account linking maps dashboard users back to Arbiter `UserProfile` and `OrgMember`
+  permissions.
+- Organization email invites let owners/admins invite referees, admins, or players into the existing
+  Discord-native org model without using Better Auth's separate Organization plugin.
+- Dashboard views cover org settings, active matches, BR lobbies, referees, evidence, and audit logs.
+
 ---
 
 ## Discord Install Modes
@@ -182,6 +194,20 @@ npm run db:migrate
 npm run deploy:commands
 npm run dev
 ```
+
+To run the optional web dashboard:
+
+```bash
+cd web
+npm install
+copy .env.example .env.local
+npm run db:generate
+npm run dev
+```
+
+Set `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and the
+shared `DATABASE_URL` in `web/.env.local`. Email delivery uses Resend when `RESEND_API_KEY` is set;
+without it, development magic links and invite URLs print to the web server console.
 
 Optional demo data for local screenshots and smoke tests:
 
