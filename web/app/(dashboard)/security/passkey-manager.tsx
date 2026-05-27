@@ -24,6 +24,33 @@ type PasskeyRow = {
   lastUsedAt: string | null;
 };
 
+function deviceTypeLabel(type: string) {
+  if (type === "singleDevice") return "Device-bound";
+  if (type === "multiDevice") return "Cloud-synced passkey";
+  return type;
+}
+
+function backupLabel(backedUp: boolean) {
+  return backedUp ? "Cloud synced" : "Not cloud synced";
+}
+
+function transportLabel(transports: string | null) {
+  if (!transports) return null;
+  const labels = transports
+    .split(",")
+    .map((transport) => {
+      const value = transport.trim();
+      if (value === "internal") return "Built-in authenticator";
+      if (value === "usb") return "USB security key";
+      if (value === "nfc") return "NFC security key";
+      if (value === "ble") return "Bluetooth security key";
+      if (value === "hybrid") return "Phone or cross-device sign-in";
+      return value;
+    })
+    .filter(Boolean);
+  return labels.length > 0 ? labels.join(", ") : null;
+}
+
 export function PasskeyManager({ passkeys }: { passkeys: PasskeyRow[] }) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -154,8 +181,10 @@ export function PasskeyManager({ passkeys }: { passkeys: PasskeyRow[] }) {
               <div className="space-y-1">
                 <p className="font-medium">{passkey.name || "Unnamed passkey"}</p>
                 <p className="text-muted-foreground text-sm">
-                  {passkey.deviceType} - {passkey.backedUp ? "synced" : "not synced"}
-                  {passkey.transports ? ` - ${passkey.transports}` : ""}
+                  {deviceTypeLabel(passkey.deviceType)} - {backupLabel(passkey.backedUp)}
+                  {transportLabel(passkey.transports)
+                    ? ` - ${transportLabel(passkey.transports)}`
+                    : ""}
                   {passkey.createdAt ? ` - added ${passkey.createdAt}` : ""}
                   {" - "}
                   {passkey.lastUsedAt ? `last used ${passkey.lastUsedAt}` : "never used"}
