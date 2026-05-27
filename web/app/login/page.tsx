@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -64,7 +65,7 @@ function readLastUsedMethod(): string | null {
 
 function LoginCard() {
   const searchParams = useSearchParams();
-  const callbackURL = searchParams.get("callbackURL") || "/";
+  const callbackURL = searchParams.get("callbackURL") || "/dashboard";
   const authNotice = authNoticeFromParams(searchParams);
   const [email, setEmail] = useState("");
   const [lastUsed] = useState<string | null>(() => readLastUsedMethod());
@@ -218,6 +219,20 @@ function LoginCard() {
           <p className="text-muted-foreground text-center text-xs">
             Email sign-in works on its own, but org data unlocks once you link
             your Discord account.
+          </p>
+          <p className="text-center text-xs">
+            <Link href="/about" className="text-primary hover:underline">
+              Learn about Arbiter
+            </Link>
+          </p>
+          <p className="text-muted-foreground text-center text-xs">
+            <Link href="/privacy" className="hover:text-foreground hover:underline">
+              Privacy
+            </Link>
+            {" / "}
+            <Link href="/terms" className="hover:text-foreground hover:underline">
+              Terms
+            </Link>
           </p>
         </CardContent>
       </Card>

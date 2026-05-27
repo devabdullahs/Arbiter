@@ -34,7 +34,7 @@ import { OrgSwitcher } from "@/components/org-switcher";
 import type { AccessibleOrg } from "@/lib/auth-session";
 
 const staffNav = [
-  { title: "Overview", href: "/", icon: LayoutDashboard },
+  { title: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { title: "Matches", href: "/matches", icon: Swords },
   { title: "BR Lobbies", href: "/br", icon: Trophy },
   { title: "Referees", href: "/referees", icon: Gavel },
@@ -86,8 +86,8 @@ export function AppSidebar({
             <SidebarMenu>
               {staffNav.map((item) => {
                 const active =
-                  item.href === "/"
-                    ? pathname === "/"
+                  item.href === "/dashboard"
+                    ? pathname === "/dashboard"
                     : pathname.startsWith(item.href);
                 return (
                   <SidebarMenuItem key={item.href}>

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 const LABELS: Record<string, string> = {
   audit: "Audit Log",
   br: "BR Lobbies",
+  dashboard: "Overview",
   evidence: "Evidence",
   matches: "Matches",
   org: "Organization",
@@ -34,7 +35,7 @@ function segmentLabel(segment: string) {
 
 function crumbsForPath(pathname: string): Crumb[] {
   const segments = pathname.split("/").filter(Boolean);
-  const crumbs: Crumb[] = [{ href: "/", label: "Home" }];
+  const crumbs: Crumb[] = [{ href: "/dashboard", label: "Home" }];
   let href = "";
 
   for (const segment of segments) {
