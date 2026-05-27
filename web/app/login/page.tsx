@@ -17,6 +17,8 @@ import { Separator } from "@/components/ui/separator";
 import { appendAuthNotice, authNoticeFromParams } from "@/lib/auth-errors";
 import { authClient } from "@/lib/auth-client";
 
+import { markPasskeyUsed } from "./actions";
+
 const LAST_USED_COOKIE = "better-auth.last_used_login_method";
 const EMAIL_METHODS = new Set(["email", "magic-link", "email-otp"]);
 
@@ -83,13 +85,18 @@ function LoginCard() {
 
   async function handlePasskey() {
     setPending("passkey");
-    const res = await authClient.signIn.passkey();
+    const res = await authClient.signIn.passkey({
+      returnWebAuthnResponse: true,
+    });
     setPending(null);
     if (res?.error) {
       toast.error(
         res.error.message ?? "Passkey sign-in failed or was cancelled.",
       );
       return;
+    }
+    if ("webauthn" in res) {
+      await markPasskeyUsed(res.webauthn.response.id);
     }
     window.location.href = callbackURL;
   }

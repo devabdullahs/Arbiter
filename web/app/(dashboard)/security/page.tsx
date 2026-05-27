@@ -25,6 +25,7 @@ export default async function SecurityPage() {
       backedUp: true,
       transports: true,
       createdAt: true,
+      lastUsedAt: true,
     },
   });
 
@@ -49,6 +50,9 @@ export default async function SecurityPage() {
               ...passkey,
               createdAt: passkey.createdAt
                 ? passkey.createdAt.toLocaleDateString()
+                : null,
+              lastUsedAt: passkey.lastUsedAt
+                ? passkey.lastUsedAt.toLocaleString()
                 : null,
             }))}
           />
