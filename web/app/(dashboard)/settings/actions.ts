@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { getLinkedDiscordId, getSession } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
+import { FIELD_ROLE_OPTIONS, GAME_OPTIONS } from "./options";
+
 function cleanText(value: FormDataEntryValue | null, max = 80) {
   return String(value ?? "").trim().slice(0, max);
 }
@@ -24,34 +26,6 @@ function cleanMulti(formData: FormData, key: string, allowed: readonly string[])
     .map((value) => String(value))
     .filter((value) => allowedSet.has(value));
 }
-
-export const GAME_OPTIONS = [
-  "Apex Legends",
-  "Call of Duty",
-  "Counter-Strike 2",
-  "Dota 2",
-  "EA FC",
-  "Fortnite",
-  "League of Legends",
-  "Overwatch 2",
-  "PUBG Mobile",
-  "Rainbow Six Siege",
-  "Rocket League",
-  "Valorant",
-] as const;
-
-export const FIELD_ROLE_OPTIONS = [
-  "Tournament admin",
-  "Head referee",
-  "Match referee",
-  "BR lobby referee",
-  "Rules judge",
-  "Observer",
-  "Broadcast ops",
-  "Tech support",
-  "Coach",
-  "Player",
-] as const;
 
 export async function updateUserSettings(formData: FormData) {
   const session = await getSession();

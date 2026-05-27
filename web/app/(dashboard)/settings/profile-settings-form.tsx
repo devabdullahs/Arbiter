@@ -6,11 +6,8 @@ import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import {
-  FIELD_ROLE_OPTIONS,
-  GAME_OPTIONS,
-  updateUserSettings,
-} from "./actions";
+import { updateUserSettings } from "./actions";
+import { FIELD_ROLE_OPTIONS, GAME_OPTIONS } from "./options";
 
 const COUNTRIES = [
   ["", "Select country"],
