@@ -20,6 +20,8 @@ import { getAccessContext } from "@/lib/auth-session";
 import { computeBrStandings } from "@/lib/br";
 import { prisma } from "@/lib/prisma";
 
+import { BrActionsPanel } from "./br-actions-panel";
+
 function fmt(date: Date) {
   return date.toISOString().slice(0, 16).replace("T", " ");
 }
@@ -58,9 +60,9 @@ export default async function BrLobbyDetailPage({
   if (!lobby) notFound();
 
   const standings = computeBrStandings(lobby);
-  const teamName = new Map(lobby.teams.map((t) => [t.id, t.name]));
+  const teamName = new Map(lobby.teams.map((team) => [team.id, team.name]));
   const gamesPlayed = lobby.results.reduce(
-    (max, r) => Math.max(max, r.gameNumber),
+    (max, result) => Math.max(max, result.gameNumber),
     0,
   );
   const orderedResults = [...lobby.results].sort(
@@ -72,13 +74,35 @@ export default async function BrLobbyDetailPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PageHeader
           title={lobby.name}
-          description={`${lobby.game} · ${lobby.teams.length} teams · game ${gamesPlayed}/${lobby.gamesPlanned}`}
+          description={`${lobby.game} - ${lobby.teams.length} teams - game ${gamesPlayed}/${lobby.gamesPlanned}`}
         />
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm">{lobby.publicCode}</span>
           <StatusBadge status={lobby.status} />
         </div>
       </div>
+
+      <Card>
+        <CardContent className="space-y-4 py-4">
+          <div>
+            <h2 className="text-sm font-medium">BR operations</h2>
+            <p className="text-muted-foreground text-sm">
+              Log games, penalties, pauses, warnings, evidence, disputes, and
+              final status from the web. If this lobby has a Discord panel,
+              Arbiter queues a Discord refresh after each change.
+            </p>
+          </div>
+          <BrActionsPanel
+            code={lobby.publicCode}
+            teams={lobby.teams.map((team) => ({
+              id: team.id,
+              name: team.name,
+              seed: team.seed,
+            }))}
+            nextGameNumber={Math.min(gamesPlayed + 1, lobby.gamesPlanned)}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">
@@ -94,31 +118,31 @@ export default async function BrLobbyDetailPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {standings.map((s, i) => (
-                <TableRow key={s.id}>
+              {standings.map((standing, index) => (
+                <TableRow key={standing.id}>
                   <TableCell className="text-muted-foreground tabular-nums">
-                    {i + 1}
+                    {index + 1}
                   </TableCell>
                   <TableCell className="font-medium">
-                    {s.name}
-                    {s.adjust !== 0 ? (
+                    {standing.name}
+                    {standing.adjust !== 0 ? (
                       <span className="text-muted-foreground ml-2 text-xs">
-                        ({s.adjust > 0 ? "+" : ""}
-                        {s.adjust} adj)
+                        ({standing.adjust > 0 ? "+" : ""}
+                        {standing.adjust} adj)
                       </span>
                     ) : null}
                   </TableCell>
                   <TableCell className="text-right font-medium tabular-nums">
-                    {s.points}
+                    {standing.points}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {s.kills}
+                    {standing.kills}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {s.games}
+                    {standing.games}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {s.bestPlacement ?? "—"}
+                    {standing.bestPlacement ?? "-"}
                   </TableCell>
                 </TableRow>
               ))}
@@ -128,7 +152,7 @@ export default async function BrLobbyDetailPage({
       </Card>
 
       <Tabs defaultValue="results">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="results">
             Results ({lobby.results.length})
           </TabsTrigger>
@@ -141,12 +165,12 @@ export default async function BrLobbyDetailPage({
         <TabsContent value="results">
           <SimpleTable
             head={["Game", "Team", "Placement", "Kills", "Points"]}
-            rows={orderedResults.map((r) => [
-              `Game ${r.gameNumber}`,
-              teamName.get(r.brTeamId) ?? "—",
-              `#${r.placement}`,
-              r.kills,
-              r.points,
+            rows={orderedResults.map((result) => [
+              `Game ${result.gameNumber}`,
+              teamName.get(result.brTeamId) ?? "-",
+              `#${result.placement}`,
+              result.kills,
+              result.points,
             ])}
             empty="No game results logged."
           />
@@ -155,12 +179,12 @@ export default async function BrLobbyDetailPage({
         <TabsContent value="adjustments">
           <SimpleTable
             head={["Team", "Points", "Kills", "Game", "Reason"]}
-            rows={lobby.adjustments.map((a) => [
-              teamName.get(a.brTeamId) ?? "—",
-              a.points > 0 ? `+${a.points}` : a.points,
-              a.kills > 0 ? `+${a.kills}` : a.kills,
-              a.gameNumber ? `Game ${a.gameNumber}` : "—",
-              a.reason,
+            rows={lobby.adjustments.map((adjustment) => [
+              teamName.get(adjustment.brTeamId) ?? "-",
+              adjustment.points > 0 ? `+${adjustment.points}` : adjustment.points,
+              adjustment.kills > 0 ? `+${adjustment.kills}` : adjustment.kills,
+              adjustment.gameNumber ? `Game ${adjustment.gameNumber}` : "-",
+              adjustment.reason,
             ])}
             empty="No adjustments or penalties."
           />
@@ -169,11 +193,11 @@ export default async function BrLobbyDetailPage({
         <TabsContent value="logs">
           <SimpleTable
             head={["Kind", "Team", "Summary", "When"]}
-            rows={lobby.logs.map((l) => [
-              l.kind,
-              l.brTeamId ? (teamName.get(l.brTeamId) ?? "—") : "—",
-              l.summary ?? l.details ?? "—",
-              fmt(l.createdAt),
+            rows={lobby.logs.map((log) => [
+              log.kind,
+              log.brTeamId ? (teamName.get(log.brTeamId) ?? "-") : "-",
+              log.summary ?? log.details ?? log.attachmentUrl ?? "-",
+              fmt(log.createdAt),
             ])}
             empty="No referee logs."
           />

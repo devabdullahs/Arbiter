@@ -1,5 +1,6 @@
 import { prisma } from '../db/prisma.js';
 import { toMatchView } from '../utils/match-view.js';
+import { updateBrMessages } from '../utils/br-message-updater.js';
 import { updateMatchMessages } from '../utils/match-message-updater.js';
 
 const MATCH_INCLUDE = {
@@ -10,6 +11,13 @@ const MATCH_INCLUDE = {
   warnings: { orderBy: { createdAt: 'asc' } },
   pauseLogs: { orderBy: { createdAt: 'asc' } },
   evidence: { orderBy: { createdAt: 'asc' } },
+};
+
+const BR_INCLUDE = {
+  teams: { orderBy: { seed: 'asc' } },
+  results: true,
+  adjustments: true,
+  logs: { orderBy: { createdAt: 'desc' } },
 };
 
 let running = false;
@@ -57,6 +65,17 @@ async function processJob(client, job) {
 
       if (match) {
         await updateMatchMessages(client, toMatchView(match));
+      }
+    }
+
+    if (job.targetType === 'br_lobby' && job.action === 'refresh') {
+      const lobby = await prisma.brLobby.findUnique({
+        where: { id: job.targetId },
+        include: BR_INCLUDE,
+      });
+
+      if (lobby) {
+        await updateBrMessages(client, lobby);
       }
     }
 

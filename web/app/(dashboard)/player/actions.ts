@@ -103,3 +103,54 @@ export async function removeTeamMember(formData: FormData) {
   await prisma.teamMember.delete({ where: { id: memberId } });
   revalidatePath("/player");
 }
+
+export async function submitPlayerCheckin(formData: FormData) {
+  const { profile } = await requireUserProfile();
+  const matchCode = String(formData.get("matchCode") ?? "").trim().toUpperCase();
+  const gameAccount = String(formData.get("gameAccount") ?? "").trim().slice(0, 120);
+
+  if (!matchCode) throw new Error("Match code is required.");
+  if (!gameAccount) throw new Error("Game account is required.");
+
+  const match = await prisma.match.findUnique({
+    where: { publicCode: matchCode },
+    include: {
+      participants: {
+        include: {
+          team: {
+            include: {
+              members: { where: { userProfileId: profile.id }, select: { id: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!match) throw new Error("Match not found.");
+  const isInMatch = match.participants.some(
+    (participant) =>
+      participant.team.captainProfileId === profile.id ||
+      participant.team.members.length > 0,
+  );
+
+  if (!isInMatch) {
+    throw new Error("You can only check in for matches assigned to your team.");
+  }
+
+  await prisma.checkin.create({
+    data: {
+      organizationId: match.organizationId,
+      matchId: match.id,
+      userProfileId: profile.id,
+      gameAccount,
+      validation: {
+        source: "web",
+        status: "submitted",
+      },
+    },
+  });
+
+  revalidatePath("/player");
+  revalidatePath(`/matches/${match.publicCode}`);
+}

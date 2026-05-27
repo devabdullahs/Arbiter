@@ -64,3 +64,17 @@ export async function enqueueDiscordMatchRefresh(
     },
   });
 }
+
+export async function enqueueDiscordBrRefresh(
+  organizationId: string,
+  lobbyId: string,
+) {
+  await prisma.discordSyncJob.create({
+    data: {
+      organizationId,
+      targetType: "br_lobby",
+      targetId: lobbyId,
+      action: "refresh",
+    },
+  });
+}

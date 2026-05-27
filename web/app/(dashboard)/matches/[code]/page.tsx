@@ -30,7 +30,33 @@ export default async function MatchDetailPage({
   const ctx = await getAccessContext();
   if (!ctx) return null;
 
-  if (ctx.orgIds.length === 0) {
+  const viewerProfile = ctx.discordId
+    ? await prisma.userProfile.findUnique({
+        where: { discordUserId: ctx.discordId },
+        select: { id: true },
+      })
+    : null;
+  const accessFilters = [
+    ...(ctx.orgIds.length ? [{ organizationId: { in: ctx.orgIds } }] : []),
+    ...(viewerProfile
+      ? [
+          {
+            participants: {
+              some: {
+                team: {
+                  OR: [
+                    { captainProfileId: viewerProfile.id },
+                    { members: { some: { userProfileId: viewerProfile.id } } },
+                  ],
+                },
+              },
+            },
+          },
+        ]
+      : []),
+  ];
+
+  if (accessFilters.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader title="Match" />
@@ -42,7 +68,7 @@ export default async function MatchDetailPage({
   const match = await prisma.match.findFirst({
     where: {
       publicCode: code.toUpperCase(),
-      organizationId: { in: ctx.orgIds },
+      OR: accessFilters,
     },
     include: {
       vetoActions: { orderBy: { createdAt: "asc" } },
@@ -56,6 +82,7 @@ export default async function MatchDetailPage({
   });
 
   if (!match) notFound();
+  const canManage = ctx.orgIds.includes(match.organizationId);
 
   return (
     <div className="space-y-6">
@@ -80,38 +107,47 @@ export default async function MatchDetailPage({
         </Card>
       ) : null}
 
-      <Card>
-        <CardContent className="space-y-4 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-medium">Web controls</h2>
-              <p className="text-muted-foreground text-sm">
-                Changes are saved to Arbiter and queued for Discord refresh when
-                this match has Discord messages.
-              </p>
+      {canManage ? (
+        <Card>
+          <CardContent className="space-y-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-medium">Web controls</h2>
+                <p className="text-muted-foreground text-sm">
+                  Changes are saved to Arbiter and queued for Discord refresh when
+                  this match has Discord messages.
+                </p>
+              </div>
+              {match.channelId ? (
+                <a
+                  href={`https://discord.com/channels/${match.organization.discordGuildId}/${match.channelId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary text-sm hover:underline"
+                >
+                  Open Discord room
+                </a>
+              ) : (
+                <Badge variant="outline">Not enabled in Discord</Badge>
+              )}
             </div>
-            {match.channelId ? (
-              <a
-                href={`https://discord.com/channels/${match.organization.discordGuildId}/${match.channelId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary text-sm hover:underline"
-              >
-                Open Discord room
-              </a>
-            ) : (
-              <Badge variant="outline">Not enabled in Discord</Badge>
-            )}
-          </div>
-          <MatchActionsPanel
-            code={match.publicCode}
-            teamAName={match.teamAName}
-            teamBName={match.teamBName}
-            teamAScore={match.teamAScore}
-            teamBScore={match.teamBScore}
-          />
-        </CardContent>
-      </Card>
+            <MatchActionsPanel
+              code={match.publicCode}
+              teamAName={match.teamAName}
+              teamBName={match.teamBName}
+              teamAScore={match.teamAScore}
+              teamBScore={match.teamBScore}
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="text-muted-foreground py-4 text-sm">
+            Player view: match information and logs are visible here. Referee
+            controls are hidden unless you are assigned as organization staff.
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="veto">
         <TabsList className="flex-wrap">
