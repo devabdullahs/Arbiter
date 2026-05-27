@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 
 import { auth } from "./auth";
 import { OrgMemberRole } from "./generated/prisma";
+import { getActiveOrgId } from "./org-selection";
 import { prisma } from "./prisma";
 
 /** Current Better Auth session (or null) for the incoming request. */
@@ -76,10 +77,14 @@ export async function getAccessContext() {
   const session = await getSession();
   if (!session) return null;
   const { discordId, orgs } = await getAccessibleOrgs(session.user.id);
+  const activeOrgId = await getActiveOrgId();
+  const activeOrg =
+    orgs.find((org) => org.id === activeOrgId) ?? orgs[0] ?? null;
   return {
     session,
     discordId,
     orgs,
-    orgIds: orgs.map((o) => o.id),
+    activeOrg,
+    orgIds: activeOrg ? [activeOrg.id] : [],
   };
 }

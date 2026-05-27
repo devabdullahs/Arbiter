@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 import { getSession } from "@/lib/auth-session";
+import { ACTIVE_ORG_COOKIE } from "@/lib/org-selection";
 import { prisma } from "@/lib/prisma";
 
 async function requireUserId() {
@@ -37,5 +39,21 @@ export async function deletePasskey(formData: FormData) {
     where: { id, userId },
   });
 
+  revalidatePath("/security");
+}
+
+export async function unlinkDiscordAccount() {
+  const userId = await requireUserId();
+
+  await prisma.account.deleteMany({
+    where: {
+      userId,
+      providerId: "discord",
+    },
+  });
+
+  (await cookies()).delete(ACTIVE_ORG_COOKIE);
+
+  revalidatePath("/");
   revalidatePath("/security");
 }

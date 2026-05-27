@@ -8,7 +8,8 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { getSession } from "@/lib/auth-session";
+import { getAccessibleOrgs, getSession } from "@/lib/auth-session";
+import { getActiveOrgId } from "@/lib/org-selection";
 
 export default async function DashboardLayout({
   children,
@@ -19,10 +20,20 @@ export default async function DashboardLayout({
   if (!session) {
     redirect("/login");
   }
+  const [{ orgs }, activeOrgId] = await Promise.all([
+    getAccessibleOrgs(session.user.id),
+    getActiveOrgId(),
+  ]);
+  const resolvedActiveOrgId =
+    orgs.find((org) => org.id === activeOrgId)?.id ?? orgs[0]?.id ?? null;
 
   return (
     <SidebarProvider>
-      <AppSidebar user={session.user} />
+      <AppSidebar
+        user={session.user}
+        orgs={orgs}
+        activeOrgId={resolvedActiveOrgId}
+      />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />

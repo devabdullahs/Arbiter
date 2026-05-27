@@ -3,11 +3,14 @@
 import { randomBytes } from "crypto";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
-import { getAccessContext } from "@/lib/auth-session";
+import { getAccessContext, getLinkedDiscordId, getSession } from "@/lib/auth-session";
 import { sendOrgInviteEmail } from "@/lib/email";
 import { OrgMemberRole } from "@/lib/generated/prisma";
+import { ACTIVE_ORG_COOKIE } from "@/lib/org-selection";
 import { prisma } from "@/lib/prisma";
+import { cookies } from "next/headers";
 
 const INVITABLE_ROLES = new Set<OrgMemberRole>([
   OrgMemberRole.ADMIN,
@@ -31,6 +34,10 @@ function roleFromForm(value: FormDataEntryValue | null) {
     return role as OrgMemberRole;
   }
   return OrgMemberRole.REFEREE;
+}
+
+function normalizeSnowflake(value: FormDataEntryValue | null) {
+  return String(value ?? "").replace(/\D/g, "");
 }
 
 async function requireInvitePermission(orgId: string) {
@@ -108,4 +115,65 @@ export async function revokeOrgInvite(formData: FormData) {
   });
 
   revalidatePath("/org");
+}
+
+export async function createOrganization(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("You must be signed in.");
+
+  const discordId = await getLinkedDiscordId(session.user.id);
+  if (!discordId) {
+    throw new Error("Link Discord before creating an organization.");
+  }
+
+  const name = String(formData.get("name") ?? "").trim();
+  const discordGuildId = normalizeSnowflake(formData.get("discordGuildId"));
+
+  if (!name) throw new Error("Organization name is required.");
+  if (!discordGuildId) throw new Error("Discord server ID is required.");
+
+  const existing = await prisma.organization.findUnique({
+    where: { discordGuildId },
+    select: { id: true },
+  });
+  if (existing) {
+    throw new Error("An organization for this Discord server already exists.");
+  }
+
+  const profile = await prisma.userProfile.upsert({
+    where: { discordUserId: discordId },
+    update: { displayName: session.user.name },
+    create: { discordUserId: discordId, displayName: session.user.name },
+  });
+
+  const org = await prisma.organization.create({
+    data: {
+      name,
+      discordGuildId,
+      members: {
+        create: {
+          userProfileId: profile.id,
+          role: OrgMemberRole.OWNER,
+        },
+      },
+      auditLogs: {
+        create: {
+          actorId: profile.id,
+          action: "org.created",
+          targetType: "Organization",
+          metadata: { name, discordGuildId },
+        },
+      },
+    },
+  });
+
+  (await cookies()).set(ACTIVE_ORG_COOKIE, org.id, {
+    path: "/",
+    sameSite: "lax",
+    httpOnly: true,
+  });
+
+  revalidatePath("/");
+  revalidatePath("/org");
+  redirect("/org");
 }

@@ -26,6 +26,8 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { NavUser, type NavUserData } from "@/components/nav-user";
+import { OrgSwitcher } from "@/components/org-switcher";
+import type { AccessibleOrg } from "@/lib/auth-session";
 
 const nav = [
   { title: "Overview", href: "/", icon: LayoutDashboard },
@@ -38,21 +40,21 @@ const nav = [
   { title: "Security", href: "/security", icon: ShieldCheck },
 ] as const;
 
-export function AppSidebar({ user }: { user: NavUserData }) {
+export function AppSidebar({
+  user,
+  orgs,
+  activeOrgId,
+}: {
+  user: NavUserData;
+  orgs: AccessibleOrg[];
+  activeOrgId: string | null;
+}) {
   const pathname = usePathname();
 
   return (
     <Sidebar>
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="bg-primary text-primary-foreground flex h-8 w-8 items-center justify-center rounded-md text-sm font-bold">
-            A
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold">Arbiter</span>
-            <span className="text-muted-foreground text-xs">Dashboard</span>
-          </div>
-        </div>
+        <OrgSwitcher orgs={orgs} activeOrgId={activeOrgId} />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

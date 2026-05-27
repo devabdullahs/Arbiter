@@ -20,7 +20,7 @@ import { getAccessContext } from "@/lib/auth-session";
 import { OrgMemberRole } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/prisma";
 
-import { createOrgInvite, revokeOrgInvite } from "./actions";
+import { createOrganization, createOrgInvite, revokeOrgInvite } from "./actions";
 
 const ROLE_ORDER: Record<string, number> = {
   OWNER: 0,
@@ -38,6 +38,7 @@ export default async function OrgPage() {
       <div className="space-y-6">
         <PageHeader title="Organization" />
         <NoOrgAccess discordId={ctx.discordId} />
+        {ctx.discordId ? <CreateOrganizationCard /> : null}
       </div>
     );
   }
@@ -66,8 +67,10 @@ export default async function OrgPage() {
     <div className="space-y-6">
       <PageHeader
         title="Organization"
-        description="Settings and membership for the organizations you can access."
+        description="Settings and membership for the selected organization."
       />
+
+      <CreateOrganizationCard />
 
       {orgs.map((org) => {
         const s = org.settings;
@@ -95,8 +98,8 @@ export default async function OrgPage() {
                 </Badge>
               </div>
               <CardDescription>
-                Guild {org.discordGuildId} · {org._count.members} members ·{" "}
-                {org._count.matches} matches · {org._count.brLobbies} BR lobbies
+                Guild {org.discordGuildId} - {org._count.members} members -{" "}
+                {org._count.matches} matches - {org._count.brLobbies} BR lobbies
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -263,5 +266,54 @@ export default async function OrgPage() {
         );
       })}
     </div>
+  );
+}
+
+function CreateOrganizationCard() {
+  return (
+    <Card id="create-org">
+      <CardHeader>
+        <CardTitle className="text-base">Create organization</CardTitle>
+        <CardDescription>
+          Create a dashboard organization for a Discord server. Add the bot and
+          run `/org setup` in that server when you are ready to sync roles and
+          channels.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form action={createOrganization} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+          <div>
+            <label htmlFor="create-org-name" className="text-sm font-medium">
+              Organization name
+            </label>
+            <input
+              id="create-org-name"
+              name="name"
+              required
+              placeholder="Saudi Esports League"
+              className="border-input bg-background mt-1 h-9 w-full rounded-lg border px-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor="create-org-guild" className="text-sm font-medium">
+              Discord server ID
+            </label>
+            <input
+              id="create-org-guild"
+              name="discordGuildId"
+              required
+              inputMode="numeric"
+              placeholder="1393726755046559824"
+              className="border-input bg-background mt-1 h-9 w-full rounded-lg border px-2.5 text-sm"
+            />
+          </div>
+          <div className="flex items-end">
+            <Button type="submit" className="w-full md:w-auto">
+              Create
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
