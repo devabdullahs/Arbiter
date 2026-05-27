@@ -329,7 +329,7 @@ export default async function PlayerDashboardPage() {
                       <div className="flex items-center gap-1">
                         {member.userProfile?.discordUserId ? (
                           <Button asChild variant="ghost" size="sm">
-                            <Link href={`/profiles/${member.userProfile.discordUserId}`}>
+                            <Link href={`/profiles/${member.userProfile.discordUserId}?from=player`}>
                               Profile
                             </Link>
                           </Button>

@@ -4,6 +4,18 @@ import { useMemo, useState, useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+  FieldTitle,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 
 import { createWebMatchWithState } from "./actions";
@@ -22,7 +34,7 @@ type TeamOption = {
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" className="w-full sm:w-auto" disabled={pending}>
       {pending ? "Creating" : "Create"}
     </Button>
   );
@@ -55,7 +67,7 @@ export function CreateMatchForm({
   return (
     <form
       action={formAction}
-      className="grid gap-3 lg:grid-cols-6"
+      className="flex flex-col gap-5"
       onSubmit={(event) => {
         setClientError("");
         if (teamAId && teamBId && teamAId === teamBId) {
@@ -65,101 +77,218 @@ export function CreateMatchForm({
       }}
     >
       {error ? (
-        <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive lg:col-span-6">
+        <FieldError className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
           {error}
-        </p>
+        </FieldError>
       ) : null}
-      <NativeSelect
-        name="organizationId"
-        defaultValue={defaultOrganizationId}
-        wrapperClassName="lg:col-span-2"
-      >
-        {orgs.map((org) => (
-          <option key={org.id} value={org.id}>
-            {org.name}
-          </option>
-        ))}
-      </NativeSelect>
-      <NativeSelect
-        name="teamAId"
-        value={teamAId}
-        onChange={(event) => {
-          const value = event.target.value;
-          setTeamAId(value);
-          if (value && value === teamBId) setTeamBId("");
-        }}
-        wrapperClassName="lg:col-span-2"
-      >
-        <option value="">Team A: custom name</option>
-        {teamOptions.map((team) => (
-          <option key={team.id} value={team.id}>
-            {team.label}
-          </option>
-        ))}
-      </NativeSelect>
-      <NativeSelect
-        name="teamBId"
-        value={teamBId}
-        onChange={(event) => {
-          const value = event.target.value;
-          setTeamBId(value);
-          if (value && value === teamAId) setTeamAId("");
-        }}
-        wrapperClassName="lg:col-span-2"
-      >
-        <option value="">Team B: custom name</option>
-        {teamOptions.map((team) => (
-          <option key={team.id} value={team.id}>
-            {team.label}
-          </option>
-        ))}
-      </NativeSelect>
-      <input
-        name="teamAName"
-        placeholder={teamAId ? "Team A linked from roster" : "Custom Team A name"}
-        maxLength={80}
-        disabled={Boolean(teamAId)}
-        className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm disabled:opacity-50 lg:col-span-2"
-      />
-      <input
-        name="teamBName"
-        placeholder={teamBId ? "Team B linked from roster" : "Custom Team B name"}
-        maxLength={80}
-        disabled={Boolean(teamBId)}
-        className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm disabled:opacity-50 lg:col-span-2"
-      />
-      <input
-        name="bestOf"
-        type="number"
-        min={1}
-        max={99}
-        defaultValue={3}
-        className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
-      />
-      <NativeSelect name="rulesPreset" defaultValue="generic">
-        <option value="generic">Generic</option>
-        <option value="valorant">Valorant</option>
-        <option value="overwatch">Overwatch</option>
-        <option value="r6s">Rainbow Six Siege</option>
-        <option value="cod">Call of Duty</option>
-        <option value="rocket_league">Rocket League</option>
-      </NativeSelect>
-      <SubmitButton />
-      <textarea
-        name="mapPool"
-        placeholder="Optional custom map pool, comma-separated or one per line"
-        maxLength={2000}
-        className="border-input bg-background min-h-20 rounded-lg border px-2.5 py-2 text-sm lg:col-span-4"
-      />
-      <NativeSelect name="vetoMode" defaultValue="series_picks">
-        <option value="series_picks">Series picks</option>
-        <option value="final_map_ban">Final map ban</option>
-        <option value="manual_picks">Manual picks</option>
-      </NativeSelect>
-      <label className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm">
-        <input type="checkbox" name="allowPlayerReports" />
-        Player reports
-      </label>
+
+      <FieldSet className="rounded-lg border bg-muted/20 p-4">
+        <div>
+          <FieldLegend>Match setup</FieldLegend>
+          <FieldDescription>
+            Choose the organization, teams, format, and rule preset for this
+            match.
+          </FieldDescription>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+          <Field className="xl:col-span-2">
+            <FieldLabel htmlFor="match-organization">Organization</FieldLabel>
+            <NativeSelect
+              id="match-organization"
+              name="organizationId"
+              defaultValue={defaultOrganizationId}
+            >
+              {orgs.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field className="xl:col-span-1">
+            <FieldLabel htmlFor="match-best-of">Series length</FieldLabel>
+            <Input
+              id="match-best-of"
+              name="bestOf"
+              type="number"
+              min={1}
+              max={99}
+              defaultValue={3}
+              className="h-9"
+            />
+            <FieldDescription>Best-of or games planned.</FieldDescription>
+          </Field>
+          <Field className="xl:col-span-2">
+            <FieldLabel htmlFor="match-rules-preset">Rules preset</FieldLabel>
+            <NativeSelect
+              id="match-rules-preset"
+              name="rulesPreset"
+              defaultValue="generic"
+            >
+              <option value="generic">Generic</option>
+              <option value="valorant">Valorant</option>
+              <option value="overwatch">Overwatch</option>
+              <option value="r6s">Rainbow Six Siege</option>
+              <option value="cod">Call of Duty</option>
+              <option value="rocket_league">Rocket League</option>
+            </NativeSelect>
+          </Field>
+          <Field className="xl:col-span-1">
+            <FieldLabel htmlFor="match-veto-mode">Veto mode</FieldLabel>
+            <NativeSelect
+              id="match-veto-mode"
+              name="vetoMode"
+              defaultValue="series_picks"
+            >
+              <option value="series_picks">Series picks</option>
+              <option value="final_map_ban">Final map ban</option>
+              <option value="manual_picks">Manual picks</option>
+            </NativeSelect>
+          </Field>
+        </div>
+      </FieldSet>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <FieldSet className="rounded-lg border p-4">
+          <div>
+            <FieldLegend variant="label">Team A</FieldLegend>
+            <FieldDescription>
+              Link a registered team when possible so rosters and check-ins stay
+              connected.
+            </FieldDescription>
+          </div>
+          <Field>
+            <FieldLabel htmlFor="match-team-a">Registered team</FieldLabel>
+            <NativeSelect
+              id="match-team-a"
+              name="teamAId"
+              value={teamAId}
+              onChange={(event) => {
+                const value = event.target.value;
+                setTeamAId(value);
+                if (value && value === teamBId) setTeamBId("");
+              }}
+            >
+              <option value="">Use a custom Team A name</option>
+              {teamOptions.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="match-team-a-custom">Custom name</FieldLabel>
+            <Input
+              id="match-team-a-custom"
+              name="teamAName"
+              placeholder={
+                teamAId ? "Team A linked from roster" : "Custom Team A name"
+              }
+              maxLength={80}
+              disabled={Boolean(teamAId)}
+              className="h-9 disabled:opacity-50"
+            />
+            <FieldDescription>
+              Used only when no registered team is selected.
+            </FieldDescription>
+          </Field>
+        </FieldSet>
+
+        <FieldSet className="rounded-lg border p-4">
+          <div>
+            <FieldLegend variant="label">Team B</FieldLegend>
+            <FieldDescription>
+              If the same registered team is selected on both sides, Arbiter
+              clears the other side automatically.
+            </FieldDescription>
+          </div>
+          <Field>
+            <FieldLabel htmlFor="match-team-b">Registered team</FieldLabel>
+            <NativeSelect
+              id="match-team-b"
+              name="teamBId"
+              value={teamBId}
+              onChange={(event) => {
+                const value = event.target.value;
+                setTeamBId(value);
+                if (value && value === teamAId) setTeamAId("");
+              }}
+            >
+              <option value="">Use a custom Team B name</option>
+              {teamOptions.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="match-team-b-custom">Custom name</FieldLabel>
+            <Input
+              id="match-team-b-custom"
+              name="teamBName"
+              placeholder={
+                teamBId ? "Team B linked from roster" : "Custom Team B name"
+              }
+              maxLength={80}
+              disabled={Boolean(teamBId)}
+              className="h-9 disabled:opacity-50"
+            />
+            <FieldDescription>
+              Used only when no registered team is selected.
+            </FieldDescription>
+          </Field>
+        </FieldSet>
+      </div>
+
+      <FieldSet className="rounded-lg border p-4">
+        <div>
+          <FieldLegend variant="label">Veto and reporting</FieldLegend>
+          <FieldDescription>
+            Optional map-pool override and player-facing reporting behavior.
+          </FieldDescription>
+        </div>
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <Field>
+            <FieldLabel htmlFor="match-map-pool">Custom map pool</FieldLabel>
+            <textarea
+              id="match-map-pool"
+              name="mapPool"
+              placeholder="Optional custom map pool, comma-separated or one per line"
+              maxLength={2000}
+              className="border-input bg-background min-h-24 rounded-lg border px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+            <FieldDescription>
+              Leave empty to use the selected rules preset map pool.
+            </FieldDescription>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="match-player-reports">
+              Player reporting
+            </FieldLabel>
+            <Field
+              orientation="horizontal"
+              className="min-h-24 rounded-lg border p-3"
+            >
+              <Checkbox id="match-player-reports" name="allowPlayerReports" />
+              <FieldContent>
+                <FieldTitle>Player reports</FieldTitle>
+                <FieldDescription>
+                  Let players submit score reports for referee review.
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+            <FieldDescription>
+              Referees still approve final scores before they count.
+            </FieldDescription>
+          </Field>
+        </div>
+      </FieldSet>
+
+      <div className="flex justify-end border-t pt-4">
+        <SubmitButton />
+      </div>
     </form>
   );
 }

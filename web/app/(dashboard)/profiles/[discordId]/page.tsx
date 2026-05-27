@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   AtSign,
+  ArrowLeft,
   BriefcaseBusiness,
   Camera,
   Mail,
@@ -17,6 +19,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { getLinkedDiscordId, getSession } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
@@ -74,10 +85,13 @@ function socialLinks(socialLinksValue: unknown, discordUserId: string) {
 
 export default async function ProfilePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ discordId: string }>;
+  searchParams?: Promise<{ from?: string }>;
 }) {
   const { discordId } = await params;
+  const { from } = searchParams ? await searchParams : {};
   const session = await getSession();
   if (!session) return null;
 
@@ -123,6 +137,13 @@ export default async function ProfilePage({
   const requestAction = requestProfileConnection.bind(null, profile.id);
   const saveAction = saveWorker.bind(null, profile.id);
   const links = socialLinks(profile.socialLinks, profile.discordUserId);
+  const hasContactMethods =
+    Boolean(profile.showContactEmail && profile.contactEmail) || links.length > 0;
+  const backTarget = isSelf
+    ? { href: "/settings", label: "Back to Profile" }
+    : from === "player"
+      ? { href: "/player", label: "Back to Player" }
+      : { href: "/workers", label: "Back to Workers" };
 
   return (
     <div className="space-y-6">
@@ -143,14 +164,22 @@ export default async function ProfilePage({
             description={`Discord ${profile.discordUserId}`}
           />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">{profile.profileVisibility}</Badge>
-          {profile.openToWork ? <Badge>Open to work</Badge> : null}
-          {saved ? (
-            <Badge variant={saved.priority ? "default" : "secondary"}>
-              {saved.priority ? "Priority" : "Saved"}
-            </Badge>
-          ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href={backTarget.href}>
+              <ArrowLeft />
+              {backTarget.label}
+            </Link>
+          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline">{profile.profileVisibility}</Badge>
+            {profile.openToWork ? <Badge>Open to work</Badge> : null}
+            {saved ? (
+              <Badge variant={saved.priority ? "default" : "secondary"}>
+                {saved.priority ? "Priority" : "Saved"}
+              </Badge>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -158,17 +187,26 @@ export default async function ProfilePage({
         <Card>
           <CardContent className="py-4">
             <form action={saveAction} className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-              <input
+              <Input
                 name="note"
                 defaultValue={saved?.note ?? ""}
                 placeholder="Private note for your worker list"
                 maxLength={300}
-                className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+                className="h-9"
               />
-              <label className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm">
-                <input type="checkbox" name="priority" defaultChecked={saved?.priority ?? false} />
-                Priority
-              </label>
+              <Field
+                orientation="horizontal"
+                className="h-9 rounded-lg border px-3"
+              >
+                <Checkbox
+                  id="save-worker-priority"
+                  name="priority"
+                  defaultChecked={saved?.priority ?? false}
+                />
+                <FieldLabel htmlFor="save-worker-priority">
+                  Priority
+                </FieldLabel>
+              </Field>
               <Button type="submit">{saved ? "Update saved" : "Save worker"}</Button>
             </form>
           </CardContent>
@@ -206,41 +244,87 @@ export default async function ProfilePage({
               <CardTitle className="text-base">Profile</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm">{profile.bio || "No bio added yet."}</p>
-              <div className="flex flex-wrap gap-2">
-                {profile.countryCode ? (
-                  <Badge variant="outline">{profile.countryCode}</Badge>
-                ) : null}
-                {profile.gameExperiences.map((game) => (
-                  <Badge key={game} variant="secondary">
-                    {game}
-                  </Badge>
-                ))}
-                {profile.fieldRoles.map((role) => (
-                  <Badge key={role} variant="outline">
-                    {role}
-                  </Badge>
-                ))}
+              <section className="grid gap-2">
+                <h3 className="text-sm font-medium">Bio</h3>
+                <p className="text-sm">{profile.bio || "No bio added yet."}</p>
+              </section>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <section className="grid gap-2 rounded-lg border p-3">
+                  <h3 className="text-sm font-medium">Country</h3>
+                  <div>
+                    {profile.countryCode ? (
+                      <Badge variant="outline">{profile.countryCode}</Badge>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        No country added.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="grid gap-2 rounded-lg border p-3">
+                  <h3 className="text-sm font-medium">Games</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.gameExperiences.length ? (
+                      profile.gameExperiences.map((game) => (
+                        <Badge key={game} variant="secondary">
+                          {game}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        No games added.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="grid gap-2 rounded-lg border p-3">
+                  <h3 className="text-sm font-medium">Field roles</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.fieldRoles.length ? (
+                      profile.fieldRoles.map((role) => (
+                        <Badge key={role} variant="outline">
+                          {role}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        No field roles added.
+                      </p>
+                    )}
+                  </div>
+                </section>
               </div>
-              {profile.showContactEmail && profile.contactEmail ? (
-                <Button asChild variant="outline" size="sm">
-                  <a href={`mailto:${profile.contactEmail}`}>
-                    <Mail />
-                    {profile.contactEmail}
-                  </a>
-                </Button>
-              ) : null}
-              {links.length ? (
-                <div className="flex flex-wrap gap-2">
-                  {links.map(({ href, Icon, label }) => (
-                    <Button key={label} asChild variant="outline" size="sm">
-                      <a href={href} target="_blank" rel="noopener noreferrer">
-                        <Icon />
-                        {label}
-                      </a>
-                    </Button>
-                  ))}
-                </div>
+
+              {hasContactMethods ? (
+                <section className="grid gap-3 rounded-lg border p-3">
+                  <FieldContent>
+                    <FieldTitle>Contact & socials</FieldTitle>
+                    <FieldDescription>
+                      Public contact methods this profile has chosen to show.
+                    </FieldDescription>
+                  </FieldContent>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.showContactEmail && profile.contactEmail ? (
+                      <Button asChild variant="outline" size="sm">
+                        <a href={`mailto:${profile.contactEmail}`}>
+                          <Mail />
+                          {profile.contactEmail}
+                        </a>
+                      </Button>
+                    ) : null}
+                    {links.map(({ href, Icon, label }) => (
+                      <Button key={label} asChild variant="outline" size="sm">
+                        <a href={href} target="_blank" rel="noopener noreferrer">
+                          <Icon />
+                          {label}
+                        </a>
+                      </Button>
+                    ))}
+                  </div>
+                </section>
               ) : null}
             </CardContent>
           </Card>

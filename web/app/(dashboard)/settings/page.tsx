@@ -54,7 +54,7 @@ export default async function SettingsPage({
         actions={
           discordId ? (
             <Button asChild variant="outline">
-              <Link href={`/profiles/${discordId}`}>
+              <Link href={`/profiles/${discordId}?from=settings`}>
                 <Eye />
                 Preview profile
               </Link>

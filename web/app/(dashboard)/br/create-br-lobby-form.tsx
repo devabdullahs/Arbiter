@@ -24,7 +24,25 @@ import { useFormStatus } from "react-dom";
 import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 import { createWebBrLobbyWithState } from "./actions";
@@ -72,7 +90,7 @@ function makeRowId(prefix: string) {
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" className="lg:col-start-6" disabled={pending}>
+    <Button type="submit" className="w-full sm:w-auto" disabled={pending}>
       {pending ? "Creating" : "Create"}
     </Button>
   );
@@ -191,6 +209,10 @@ export function CreateBrLobbyForm({
     () => placementRules.map((rule) => rule.id),
     [placementRules],
   );
+  const selectedTeamIdSet = useMemo(
+    () => new Set(selectedTeamIds),
+    [selectedTeamIds],
+  );
   const teamsById = useMemo(
     () => new Map(teams.map((team) => [team.id, team])),
     [teams],
@@ -222,7 +244,12 @@ export function CreateBrLobbyForm({
 
     return { duplicateNames: [...duplicates], duplicateKeys: duplicateKeySet };
   }, [extraTeamNames, selectedTeamIds, teamsById]);
-  const totalTeams = selectedTeamIds.length + extraTeamNames.length - duplicateNames.length;
+  const totalTeams =
+    selectedTeamIds.length + extraTeamNames.length - duplicateNames.length;
+  const allRegisteredSelected =
+    teams.length > 0 && selectedTeamIds.length === teams.length;
+  const registeredSelectionState =
+    allRegisteredSelected || (selectedTeamIds.length > 0 && "indeterminate");
   const error =
     clientError ||
     (duplicateNames.length
@@ -233,7 +260,7 @@ export function CreateBrLobbyForm({
   return (
     <form
       action={formAction}
-      className="grid gap-3 lg:grid-cols-6"
+      className="flex flex-col gap-5"
       onSubmit={(event) => {
         setClientError("");
         if (duplicateNames.length) {
@@ -247,205 +274,305 @@ export function CreateBrLobbyForm({
       }}
     >
       {error ? (
-        <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive lg:col-span-6">
+        <FieldError className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
           {error}
-        </p>
+        </FieldError>
       ) : null}
-      <NativeSelect
-        name="organizationId"
-        defaultValue={defaultOrganizationId}
-      >
-        {orgs.map((org) => (
-          <option key={org.id} value={org.id}>
-            {org.name}
-          </option>
-        ))}
-      </NativeSelect>
-      <input
-        name="name"
-        placeholder="Lobby name"
-        required
-        maxLength={80}
-        className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
-      />
-      <NativeSelect name="game" defaultValue="Apex Legends">
-        <option>Apex Legends</option>
-        <option>Fortnite</option>
-        <option>PUBG Mobile</option>
-        <option>PUBG: Battlegrounds</option>
-        <option>Other</option>
-      </NativeSelect>
-      <input
-        name="gamesPlanned"
-        type="number"
-        min={1}
-        max={50}
-        defaultValue={6}
-        className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
-      />
-      <input
-        name="killPoints"
-        type="number"
-        min={0}
-        max={20}
-        defaultValue={1}
-        className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
-      />
-      <input type="hidden" name="teams" value={extraTeamNames.join("\n")} />
-      <label className="space-y-1 lg:col-span-2">
-        <span className="text-xs font-medium">Registered teams</span>
-        <NativeSelect
-          name="teamIds"
-          multiple
-          size={Math.min(12, Math.max(5, teams.length))}
-          value={selectedTeamIds}
-          onChange={(event) =>
-            setSelectedTeamIds(
-              Array.from(event.currentTarget.selectedOptions).map(
-                (option) => option.value,
-              ),
-            )
-          }
-          className="min-h-28"
-        >
-          {teams.map((team) => (
-            <option key={team.id} value={team.id}>
-              {team.organization.name} / {team.name}
-            </option>
-          ))}
-        </NativeSelect>
-        <span className="text-muted-foreground block text-xs">
-          {totalTeams} unique team{totalTeams === 1 ? "" : "s"} selected.
-        </span>
-      </label>
 
-      <section className="space-y-3 rounded-lg border p-3 lg:col-span-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-medium">Extra team seeds</h3>
-            <p className="text-muted-foreground text-xs">
-              Add invite teams that are not registered yet. Each row is a team
-              name, and Arbiter keeps this order as the initial seed.
-            </p>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              setExtraTeams((items) => [
-                ...items,
-                { id: makeRowId("extra"), name: "" },
-              ])
-            }
-          >
-            <Plus />
-            Add
-          </Button>
+      <FieldSet className="rounded-lg border bg-muted/20 p-4">
+        <div>
+          <FieldLegend>Lobby setup</FieldLegend>
+          <FieldDescription>
+            Configure the lobby basics before selecting linked teams and invite
+            seeds.
+          </FieldDescription>
         </div>
-        <p className="text-muted-foreground text-xs">
-          Drag the handle or use the arrows to reorder the seed list.
-        </p>
-        <DndContext
-          collisionDetection={closestCenter}
-          id={sortableSeedListId}
-          modifiers={[restrictToVerticalAxis]}
-          onDragEnd={(event: DragEndEvent) => {
-            setExtraTeams((items) => reorderById(items, event.active.id, event.over?.id));
-          }}
-          sensors={sensors}
-        >
-          <SortableContext
-            items={extraTeamIds}
-            strategy={verticalListSortingStrategy}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+          <Field className="xl:col-span-1">
+            <FieldLabel htmlFor="br-organization">Organization</FieldLabel>
+            <NativeSelect
+              id="br-organization"
+              name="organizationId"
+              defaultValue={defaultOrganizationId}
+            >
+              {orgs.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field className="xl:col-span-2">
+            <FieldLabel htmlFor="br-lobby-name">Lobby name</FieldLabel>
+            <Input
+              id="br-lobby-name"
+              name="name"
+              placeholder="EWC finals lobby"
+              required
+              maxLength={80}
+              className="h-9"
+            />
+          </Field>
+          <Field className="xl:col-span-1">
+            <FieldLabel htmlFor="br-game">Game</FieldLabel>
+            <NativeSelect id="br-game" name="game" defaultValue="Apex Legends">
+              <option>Apex Legends</option>
+              <option>Fortnite</option>
+              <option>PUBG Mobile</option>
+              <option>PUBG: Battlegrounds</option>
+              <option>Other</option>
+            </NativeSelect>
+          </Field>
+          <Field className="xl:col-span-1">
+            <FieldLabel htmlFor="br-games-planned">Games</FieldLabel>
+            <Input
+              id="br-games-planned"
+              name="gamesPlanned"
+              type="number"
+              min={1}
+              max={50}
+              defaultValue={6}
+              className="h-9"
+            />
+            <FieldDescription>Total games planned.</FieldDescription>
+          </Field>
+          <Field className="xl:col-span-1">
+            <FieldLabel htmlFor="br-kill-points">Kill points</FieldLabel>
+            <Input
+              id="br-kill-points"
+              name="killPoints"
+              type="number"
+              min={0}
+              max={20}
+              defaultValue={1}
+              className="h-9"
+            />
+            <FieldDescription>Points per kill.</FieldDescription>
+          </Field>
+        </div>
+      </FieldSet>
+
+      <input type="hidden" name="teams" value={extraTeamNames.join("\n")} />
+      {selectedTeamIds.map((teamId) => (
+        <input key={teamId} type="hidden" name="teamIds" value={teamId} />
+      ))}
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <FieldSet className="rounded-lg border p-4">
+          <div>
+            <FieldLegend variant="label">Registered teams</FieldLegend>
+            <FieldDescription>
+              Select roster-linked teams. These stay connected to their team
+              records and player memberships.
+            </FieldDescription>
+          </div>
+          <div className="max-h-72 overflow-auto rounded-lg border">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-background">
+                <TableRow>
+                  <TableHead className="w-8">
+                    <Checkbox
+                      id="br-select-all-teams"
+                      name="br-select-all-teams"
+                      checked={registeredSelectionState}
+                      disabled={teams.length === 0}
+                      onCheckedChange={(checked) =>
+                        setSelectedTeamIds(
+                          checked === true ? teams.map((team) => team.id) : [],
+                        )
+                      }
+                      aria-label="Select all registered teams"
+                    />
+                  </TableHead>
+                  <TableHead>Team</TableHead>
+                  <TableHead>Organization</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {teams.length ? (
+                  teams.map((team) => {
+                    const selected = selectedTeamIdSet.has(team.id);
+                    return (
+                      <TableRow
+                        key={team.id}
+                        data-state={selected ? "selected" : undefined}
+                      >
+                        <TableCell>
+                          <Checkbox
+                            id={`br-team-${team.id}`}
+                            name={`br-team-${team.id}`}
+                            checked={selected}
+                            onCheckedChange={(checked) =>
+                              setSelectedTeamIds((current) =>
+                                checked === true
+                                  ? current.includes(team.id)
+                                    ? current
+                                    : [...current, team.id]
+                                  : current.filter((id) => id !== team.id),
+                              )
+                            }
+                            aria-label={`Select ${team.name}`}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{team.name}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {team.organization.name}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={3}
+                      className="h-20 text-center text-muted-foreground"
+                    >
+                      No registered teams yet. Add invite teams on the right.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <FieldDescription>
+            {totalTeams} unique team{totalTeams === 1 ? "" : "s"} selected.
+          </FieldDescription>
+        </FieldSet>
+
+        <FieldSet className="rounded-lg border p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <FieldLegend variant="label">Extra team seeds</FieldLegend>
+              <FieldDescription>
+                Add invite teams that are not registered yet. Each row is a team
+                name, and Arbiter keeps this order as the initial seed.
+              </FieldDescription>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                setExtraTeams((items) => [
+                  ...items,
+                  { id: makeRowId("extra"), name: "" },
+                ])
+              }
+            >
+              <Plus />
+              Add
+            </Button>
+          </div>
+          <FieldDescription>
+            Drag the handle or use the arrows to reorder the seed list.
+          </FieldDescription>
+          <DndContext
+            collisionDetection={closestCenter}
+            id={sortableSeedListId}
+            modifiers={[restrictToVerticalAxis]}
+            onDragEnd={(event: DragEndEvent) => {
+              setExtraTeams((items) =>
+                reorderById(items, event.active.id, event.over?.id),
+              );
+            }}
+            sensors={sensors}
           >
-            <ol className="space-y-2">
-              {extraTeams.map((team, index) => {
-                const duplicate = duplicateKeys.has(
-                  team.name.trim().toLowerCase(),
-                );
-                return (
-                  <SortableRow key={team.id} id={team.id}>
-                    <div className="grid grid-cols-[auto_4.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md py-1">
-                      <SortableDragHandle
-                        id={team.id}
-                        label={`Drag seed ${index + 1} to reorder`}
-                      />
-                      <span className="text-muted-foreground text-xs tabular-nums">
-                        Seed {index + 1}
-                      </span>
-                      <input
-                        value={team.name}
-                        onChange={(event) =>
-                          setExtraTeams((items) =>
-                            items.map((entry) =>
-                              entry.id === team.id
-                                ? { ...entry, name: event.target.value }
-                                : entry,
-                            ),
-                          )
-                        }
-                        placeholder="Team name"
-                        aria-label={`Seed ${index + 1} team name`}
-                        maxLength={80}
-                        className={cn(
-                          "border-input bg-background h-9 rounded-lg border px-2.5 text-sm",
-                          duplicate &&
-                            "border-destructive focus-visible:ring-destructive/20",
-                        )}
-                      />
-                      <div className="flex gap-1">
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          disabled={index === 0}
-                          onClick={() =>
-                            setExtraTeams((items) => moveItem(items, index, -1))
-                          }
-                          aria-label="Move team up"
-                        >
-                          <ArrowUp />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          disabled={index === extraTeams.length - 1}
-                          onClick={() =>
-                            setExtraTeams((items) => moveItem(items, index, 1))
-                          }
-                          aria-label="Move team down"
-                        >
-                          <ArrowDown />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          disabled={extraTeams.length === 1 && !team.name}
-                          onClick={() =>
+            <SortableContext
+              items={extraTeamIds}
+              strategy={verticalListSortingStrategy}
+            >
+              <ol className="flex flex-col gap-2">
+                {extraTeams.map((team, index) => {
+                  const duplicate = duplicateKeys.has(
+                    team.name.trim().toLowerCase(),
+                  );
+                  return (
+                    <SortableRow key={team.id} id={team.id}>
+                      <div className="grid grid-cols-[auto_4.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md py-1">
+                        <SortableDragHandle
+                          id={team.id}
+                          label={`Drag seed ${index + 1} to reorder`}
+                        />
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          Seed {index + 1}
+                        </span>
+                        <Input
+                          value={team.name}
+                          onChange={(event) =>
                             setExtraTeams((items) =>
-                              items.length === 1
-                                ? [{ id: team.id, name: "" }]
-                                : items.filter((entry) => entry.id !== team.id),
+                              items.map((entry) =>
+                                entry.id === team.id
+                                  ? { ...entry, name: event.target.value }
+                                  : entry,
+                              ),
                             )
                           }
-                          aria-label="Remove team"
-                        >
-                          <Trash2 />
-                        </Button>
+                          placeholder="Team name"
+                          aria-label={`Seed ${index + 1} team name`}
+                          maxLength={80}
+                          className={cn(
+                            "border-input bg-background h-9 rounded-lg border px-2.5 text-sm",
+                            duplicate &&
+                              "border-destructive focus-visible:ring-destructive/20",
+                          )}
+                        />
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            disabled={index === 0}
+                            onClick={() =>
+                              setExtraTeams((items) =>
+                                moveItem(items, index, -1),
+                              )
+                            }
+                            aria-label="Move team up"
+                          >
+                            <ArrowUp />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            disabled={index === extraTeams.length - 1}
+                            onClick={() =>
+                              setExtraTeams((items) => moveItem(items, index, 1))
+                            }
+                            aria-label="Move team down"
+                          >
+                            <ArrowDown />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            disabled={extraTeams.length === 1 && !team.name}
+                            onClick={() =>
+                              setExtraTeams((items) =>
+                                items.length === 1
+                                  ? [{ id: team.id, name: "" }]
+                                  : items.filter(
+                                      (entry) => entry.id !== team.id,
+                                    ),
+                              )
+                            }
+                            aria-label="Remove team"
+                          >
+                            <Trash2 />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </SortableRow>
-                );
-              })}
-            </ol>
-          </SortableContext>
-        </DndContext>
-      </section>
+                    </SortableRow>
+                  );
+                })}
+              </ol>
+            </SortableContext>
+          </DndContext>
+        </FieldSet>
+      </div>
 
-      <section className="space-y-3 rounded-lg border p-3 lg:col-span-3">
+      <FieldSet className="rounded-lg border p-4">
         <input
           type="hidden"
           name="placementPoints"
@@ -453,11 +580,11 @@ export function CreateBrLobbyForm({
         />
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-medium">Placement point rules</h3>
-            <p className="text-muted-foreground text-xs">
+            <FieldLegend variant="label">Placement point rules</FieldLegend>
+            <FieldDescription>
               Scoring rules only. Teams are assigned to 1st, 2nd, 3rd, and so
               on later when you log each game result.
-            </p>
+            </FieldDescription>
           </div>
           <Button
             type="button"
@@ -474,10 +601,10 @@ export function CreateBrLobbyForm({
             Add place
           </Button>
         </div>
-        <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <FieldDescription className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
           Example: if 1st place is 12 and kills are worth 1 point, a team with
           1st place and 5 kills receives 17 points for that game.
-        </p>
+        </FieldDescription>
         <DndContext
           collisionDetection={closestCenter}
           id={sortablePlacementListId}
@@ -493,7 +620,7 @@ export function CreateBrLobbyForm({
             items={placementRuleIds}
             strategy={verticalListSortingStrategy}
           >
-            <ol className="max-h-72 space-y-2 overflow-auto pr-1">
+            <ol className="flex max-h-72 flex-col gap-2 overflow-auto pr-1">
               {placementRules.map((rule, index) => (
                 <SortableRow key={rule.id} id={rule.id}>
                   <div className="grid grid-cols-[auto_8rem_minmax(0,1fr)_3rem_auto] items-center gap-2 rounded-md py-1">
@@ -501,10 +628,10 @@ export function CreateBrLobbyForm({
                       id={rule.id}
                       label={`Drag ${ordinal(index + 1)} place point rule to reorder`}
                     />
-                    <span className="text-muted-foreground text-xs tabular-nums">
-                      {ordinal(index + 1)} place
-                    </span>
-                    <input
+                      <span className="text-muted-foreground text-xs tabular-nums">
+                        {ordinal(index + 1)} place
+                      </span>
+                    <Input
                       type="number"
                       min={0}
                       max={999}
@@ -576,8 +703,10 @@ export function CreateBrLobbyForm({
             </ol>
           </SortableContext>
         </DndContext>
-      </section>
-      <SubmitButton />
+      </FieldSet>
+      <div className="flex justify-end border-t pt-4">
+        <SubmitButton />
+      </div>
     </form>
   );
 }

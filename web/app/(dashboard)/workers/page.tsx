@@ -164,7 +164,7 @@ export default async function WorkersPage({
                   ))}
                 </div>
                 <Button asChild variant="outline" className="w-full">
-                  <Link href={`/profiles/${member.userProfile.discordUserId}`}>
+                  <Link href={`/profiles/${member.userProfile.discordUserId}?from=workers`}>
                     Open profile
                   </Link>
                 </Button>
@@ -242,7 +242,7 @@ export default async function WorkersPage({
                     )}
                   </div>
                   <Button asChild variant="outline" className="w-full">
-                    <Link href={`/profiles/${saved.worker.discordUserId}`}>
+                    <Link href={`/profiles/${saved.worker.discordUserId}?from=workers`}>
                       Open profile
                     </Link>
                   </Button>
@@ -374,7 +374,7 @@ export default async function WorkersPage({
                         ))}
                       </div>
                       <Button asChild variant="outline" className="w-full">
-                        <Link href={`/profiles/${worker.discordUserId}`}>
+                        <Link href={`/profiles/${worker.discordUserId}?from=workers`}>
                           Open profile
                         </Link>
                       </Button>
