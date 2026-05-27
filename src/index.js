@@ -1,6 +1,7 @@
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
 import { getConfig } from './config.js';
 import { handleInteraction } from './interactions/router.js';
+import { startDiscordSyncLoop } from './services/discord-sync-service.js';
 import { startReminderLoop } from './services/reminder-service.js';
 
 const config = getConfig();
@@ -13,6 +14,7 @@ const client = new Client({
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}`);
   startReminderLoop(readyClient);
+  startDiscordSyncLoop(readyClient);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

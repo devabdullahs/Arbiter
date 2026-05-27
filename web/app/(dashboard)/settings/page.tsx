@@ -22,6 +22,10 @@ export default async function SettingsPage() {
         select: {
           displayName: true,
           countryCode: true,
+          bio: true,
+          profileVisibility: true,
+          openToWork: true,
+          avatarUrl: true,
           gameExperiences: true,
           fieldRoles: true,
         },
@@ -49,6 +53,10 @@ export default async function SettingsPage() {
               displayName:
                 profile?.displayName ?? session.user.name ?? session.user.email ?? "",
               countryCode: profile?.countryCode ?? "",
+              bio: profile?.bio ?? "",
+              profileVisibility: profile?.profileVisibility ?? "private",
+              openToWork: profile?.openToWork ?? false,
+              avatarUrl: profile?.avatarUrl ?? session.user.image ?? null,
               gameExperiences: profile?.gameExperiences ?? [],
               fieldRoles: profile?.fieldRoles ?? [],
               discordId,

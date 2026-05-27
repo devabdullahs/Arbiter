@@ -121,6 +121,28 @@ export async function revokeOrgInvite(formData: FormData) {
   revalidatePath("/org");
 }
 
+export async function updateOrgWebPermissions(formData: FormData) {
+  const organizationId = String(formData.get("organizationId") ?? "");
+  if (!organizationId) throw new Error("Organization is required.");
+
+  await requireInvitePermission(organizationId);
+
+  const webPermissions = {
+    playersCanViewMatches: formData.get("playersCanViewMatches") === "on",
+    playersCanViewTeams: formData.get("playersCanViewTeams") === "on",
+    playersCanViewEvidence: formData.get("playersCanViewEvidence") === "on",
+    refereesCanViewWorkers: formData.get("refereesCanViewWorkers") === "on",
+  };
+
+  await prisma.orgSettings.upsert({
+    where: { organizationId },
+    update: { webPermissions },
+    create: { organizationId, webPermissions },
+  });
+
+  revalidatePath("/org");
+}
+
 export async function createOrganization(formData: FormData) {
   const session = await getSession();
   if (!session) throw new Error("You must be signed in.");

@@ -35,6 +35,10 @@ const COUNTRIES = [
 type ProfileSettings = {
   displayName: string;
   countryCode: string;
+  bio: string;
+  profileVisibility: string;
+  openToWork: boolean;
+  avatarUrl: string | null;
   gameExperiences: string[];
   fieldRoles: string[];
   discordId: string | null;
@@ -79,6 +83,35 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
 
   return (
     <form action={updateUserSettings} className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="bg-muted flex size-20 items-center justify-center overflow-hidden rounded-lg border">
+          {profile.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={profile.avatarUrl}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <span className="text-2xl font-semibold">
+              {(profile.displayName[0] ?? "A").toUpperCase()}
+            </span>
+          )}
+        </div>
+        <label className="space-y-2">
+          <span className="text-sm font-medium">Profile picture</span>
+          <input
+            name="avatar"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="text-sm file:mr-3 file:h-8 file:rounded-lg file:border file:border-input file:bg-background file:px-3 file:text-sm"
+          />
+          <span className="text-muted-foreground block text-xs">
+            PNG, JPG, or WebP. Maximum 2 MB.
+          </span>
+        </label>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-2">
           <span className="text-sm font-medium">Display name</span>
@@ -103,6 +136,50 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
               </option>
             ))}
           </select>
+        </label>
+      </div>
+
+      <label className="space-y-2">
+        <span className="text-sm font-medium">Bio</span>
+        <textarea
+          name="bio"
+          defaultValue={profile.bio}
+          maxLength={500}
+          rows={4}
+          placeholder="Briefly describe your event experience, games, languages, and strengths."
+          className="border-input bg-background min-h-24 w-full resize-y rounded-lg border px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        />
+        <span className="text-muted-foreground block text-xs">
+          Maximum 500 characters.
+        </span>
+      </label>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="space-y-2">
+          <span className="text-sm font-medium">Profile visibility</span>
+          <select
+            name="profileVisibility"
+            defaultValue={profile.profileVisibility}
+            className="border-input bg-background h-8 w-full rounded-lg border px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <option value="private">Private</option>
+            <option value="connections">Connections only</option>
+            <option value="public">Public</option>
+          </select>
+        </label>
+        <label className="flex min-h-20 items-center gap-3 rounded-lg border p-3">
+          <input
+            type="checkbox"
+            name="openToWork"
+            defaultChecked={profile.openToWork}
+            className="size-4"
+          />
+          <span>
+            <span className="block text-sm font-medium">Open to work</span>
+            <span className="text-muted-foreground block text-sm">
+              Let organization owners find you in worker discovery.
+            </span>
+          </span>
         </label>
       </div>
 

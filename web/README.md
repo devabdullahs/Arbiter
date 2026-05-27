@@ -31,7 +31,15 @@ Open http://localhost:3000.
 - Dashboard users sign in with Discord, magic links, email OTP, or passkeys.
 - The Security page lets users name, review, rename, and delete passkeys.
 - The Settings page stores referee profile details: display name, country,
-  game experience, and field roles.
+  bio, profile photo, country, game experience, field roles, visibility, and
+  open-to-work status.
+- Match detail pages support web score logging, evidence uploads/links, and
+  status/ruling updates. These writes queue Discord panel refresh jobs for the
+  bot process.
+- Worker discovery lets org owners/admins filter public or open-to-work
+  profiles by game, role, and country.
+- The Player page lets members create teams and view teammates separately from
+  referee/admin operations.
 - The sidebar organization switcher scopes dashboard pages to the selected org.
 - Users can link or disconnect Discord from Security, and create a new org from
   the Organization page after Discord is linked.

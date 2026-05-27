@@ -7,11 +7,13 @@ import {
   Gavel,
   Image as ImageIcon,
   LayoutDashboard,
+  Search,
   ScrollText,
   Settings,
   ShieldCheck,
   Swords,
   Trophy,
+  Users,
 } from "lucide-react";
 
 import {
@@ -35,6 +37,8 @@ const nav = [
   { title: "Matches", href: "/matches", icon: Swords },
   { title: "BR Lobbies", href: "/br", icon: Trophy },
   { title: "Referees", href: "/referees", icon: Gavel },
+  { title: "Workers", href: "/workers", icon: Search },
+  { title: "Player", href: "/player", icon: Users },
   { title: "Evidence", href: "/evidence", icon: ImageIcon },
   { title: "Audit Log", href: "/audit", icon: ScrollText },
   { title: "Organization", href: "/org", icon: Building2 },

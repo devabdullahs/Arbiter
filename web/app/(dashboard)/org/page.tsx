@@ -21,7 +21,11 @@ import { botInviteUrl, listDiscordGuildOptions } from "@/lib/discord";
 import { OrgMemberRole } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/prisma";
 
-import { createOrgInvite, revokeOrgInvite } from "./actions";
+import {
+  createOrgInvite,
+  revokeOrgInvite,
+  updateOrgWebPermissions,
+} from "./actions";
 import { CreateOrganizationCard } from "./create-organization-card";
 
 const ROLE_ORDER: Record<string, number> = {
@@ -103,6 +107,7 @@ export default async function OrgPage() {
               ),
           )
           .slice(0, 50);
+        const webPermissions = (s?.webPermissions ?? {}) as Record<string, boolean>;
 
         return (
           <Card key={org.id}>
@@ -276,6 +281,36 @@ export default async function OrgPage() {
                     <Button type="submit">Send invite</Button>
                   </form>
                 </div>
+              ) : null}
+
+              {canManageInvites ? (
+                <form action={updateOrgWebPermissions} className="space-y-3 border-t pt-4">
+                  <input type="hidden" name="organizationId" value={org.id} />
+                  <div>
+                    <h3 className="text-sm font-medium">Web permissions</h3>
+                    <p className="text-muted-foreground text-xs">
+                      Control what non-admin roles can see in the dashboard.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {[
+                      ["playersCanViewMatches", "Players can view matches"],
+                      ["playersCanViewTeams", "Players can view teams"],
+                      ["playersCanViewEvidence", "Players can view evidence"],
+                      ["refereesCanViewWorkers", "Referees can view worker discovery"],
+                    ].map(([name, label]) => (
+                      <label key={name} className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+                        <input
+                          type="checkbox"
+                          name={name}
+                          defaultChecked={Boolean(webPermissions[name])}
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <Button type="submit">Save permissions</Button>
+                </form>
               ) : null}
             </CardContent>
           </Card>

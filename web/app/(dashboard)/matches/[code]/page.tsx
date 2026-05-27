@@ -15,6 +15,8 @@ import {
 import { getAccessContext } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
+import { MatchActionsPanel } from "./match-actions-panel";
+
 function fmt(date: Date) {
   return date.toISOString().slice(0, 16).replace("T", " ");
 }
@@ -49,6 +51,7 @@ export default async function MatchDetailPage({
       warnings: { orderBy: { createdAt: "desc" } },
       evidence: { orderBy: { createdAt: "desc" } },
       rosterSubmissions: { orderBy: { teamSlot: "asc" } },
+      organization: { select: { discordGuildId: true, name: true } },
     },
   });
 
@@ -76,6 +79,39 @@ export default async function MatchDetailPage({
           </CardContent>
         </Card>
       ) : null}
+
+      <Card>
+        <CardContent className="space-y-4 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-medium">Web controls</h2>
+              <p className="text-muted-foreground text-sm">
+                Changes are saved to Arbiter and queued for Discord refresh when
+                this match has Discord messages.
+              </p>
+            </div>
+            {match.channelId ? (
+              <a
+                href={`https://discord.com/channels/${match.organization.discordGuildId}/${match.channelId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary text-sm hover:underline"
+              >
+                Open Discord room
+              </a>
+            ) : (
+              <Badge variant="outline">Not enabled in Discord</Badge>
+            )}
+          </div>
+          <MatchActionsPanel
+            code={match.publicCode}
+            teamAName={match.teamAName}
+            teamBName={match.teamBName}
+            teamAScore={match.teamAScore}
+            teamBScore={match.teamBScore}
+          />
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="veto">
         <TabsList className="flex-wrap">

@@ -134,25 +134,26 @@ enum VetoKind {
 }
 
 model Organization {
-  id             String              @id @default(cuid())
-  discordGuildId String              @unique
-  name           String
-  settings       OrgSettings?
-  members        OrgMember[]
-  tournaments    Tournament[]
-  teams          Team[]
-  matches        Match[]
-  scoreReports   ScoreReport[]
-  rosterEntries  RosterSubmission[]
-  reminders      ScheduledReminder[]
-  rulebook       RulebookEntry[]
-  shifts         RefereeShift[]
-  auditLogs      AuditLog[]
-  rulesPresets   RulesPreset[]
-  brLobbies      BrLobby[]
-  invites        OrgInvite[]
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  id              String              @id @default(cuid())
+  discordGuildId  String              @unique
+  name            String
+  settings        OrgSettings?
+  members         OrgMember[]
+  tournaments     Tournament[]
+  teams           Team[]
+  matches         Match[]
+  scoreReports    ScoreReport[]
+  rosterEntries   RosterSubmission[]
+  reminders       ScheduledReminder[]
+  rulebook        RulebookEntry[]
+  shifts          RefereeShift[]
+  auditLogs       AuditLog[]
+  rulesPresets    RulesPreset[]
+  brLobbies       BrLobby[]
+  invites         OrgInvite[]
+  discordSyncJobs DiscordSyncJob[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 }
 
 // Dashboard email invites: invite someone to an org by email. Accepted by
@@ -302,6 +303,7 @@ model OrgSettings {
   matchCategoryId   String?
   matchLogChannelId String?
   evidenceChannelId String?
+  webPermissions    Json?
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
@@ -322,24 +324,49 @@ model OrgMember {
 }
 
 model UserProfile {
-  id              String          @id @default(cuid())
-  discordUserId   String          @unique
-  displayName     String?
-  countryCode     String?
-  gameExperiences String[]        @default([])
-  fieldRoles      String[]        @default([])
-  linkedAccounts  LinkedAccount[]
-  memberships     OrgMember[]
-  teamMembers     TeamMember[]
-  checkins        Checkin[]
-  pauseLogs       PauseLog[]
-  warningsIssued  Warning[]       @relation("WarningIssuer")
-  evidence        Evidence[]
-  shifts          RefereeShift[]
-  auditLogs       AuditLog[]
-  standaloneLogs  StandaloneLog[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id                      String                     @id @default(cuid())
+  discordUserId           String                     @unique
+  displayName             String?
+  countryCode             String?
+  bio                     String?
+  profileVisibility       String                     @default("private")
+  openToWork              Boolean                    @default(false)
+  avatarUrl               String?
+  avatarMimeType          String?
+  avatarSizeBytes         Int?
+  avatarUpdatedAt         DateTime?
+  gameExperiences         String[]                   @default([])
+  fieldRoles              String[]                   @default([])
+  linkedAccounts          LinkedAccount[]
+  memberships             OrgMember[]
+  teamMembers             TeamMember[]
+  captainedTeams          Team[]                     @relation("TeamCaptain")
+  sentProfileRequests     ProfileConnectionRequest[] @relation("ProfileConnectionRequester")
+  receivedProfileRequests ProfileConnectionRequest[] @relation("ProfileConnectionTarget")
+  checkins                Checkin[]
+  pauseLogs               PauseLog[]
+  warningsIssued          Warning[]                  @relation("WarningIssuer")
+  evidence                Evidence[]
+  shifts                  RefereeShift[]
+  auditLogs               AuditLog[]
+  standaloneLogs          StandaloneLog[]
+  createdAt               DateTime                   @default(now())
+  updatedAt               DateTime                   @updatedAt
+}
+
+model ProfileConnectionRequest {
+  id          String      @id @default(cuid())
+  requesterId String
+  targetId    String
+  status      String      @default("pending")
+  message     String?
+  requester   UserProfile @relation("ProfileConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  target      UserProfile @relation("ProfileConnectionTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([requesterId, targetId])
+  @@index([targetId])
 }
 
 // Matchless logs captured by referees via the user-installed /log command, e.g. for
@@ -389,18 +416,21 @@ model Tournament {
 }
 
 model Team {
-  id             String             @id @default(cuid())
-  organizationId String
-  tournamentId   String?
-  name           String
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  tournament     Tournament?        @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
-  members        TeamMember[]
-  participants   MatchParticipant[]
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  id               String             @id @default(cuid())
+  organizationId   String
+  tournamentId     String?
+  name             String
+  captainProfileId String?
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tournament       Tournament?        @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  captain          UserProfile?       @relation("TeamCaptain", fields: [captainProfileId], references: [id], onDelete: SetNull)
+  members          TeamMember[]
+  participants     MatchParticipant[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   @@index([organizationId])
+  @@index([captainProfileId])
 }
 
 model TeamMember {
@@ -671,4 +701,24 @@ model AuditLog {
   createdAt      DateTime     @default(now())
 
   @@index([organizationId])
+}
+
+model DiscordSyncJob {
+  id             String       @id @default(cuid())
+  organizationId String
+  targetType     String
+  targetId       String
+  action         String       @default("refresh")
+  status         String       @default("pending")
+  attempts       Int          @default(0)
+  lastError      String?
+  claimedAt      DateTime?
+  completedAt    DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([status, createdAt])
+  @@index([organizationId])
+  @@index([targetType, targetId])
 }
