@@ -1,6 +1,25 @@
 "use client";
 
-import { useMemo, useState, useActionState } from "react";
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  type UniqueIdentifier,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { useActionState, useId, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2 } from "lucide-react";
 
@@ -21,9 +40,34 @@ type TeamOption = {
   organization: OrgOption;
 };
 
+type ExtraTeamSeed = {
+  id: string;
+  name: string;
+};
+
+type PlacementPointRule = {
+  id: string;
+  points: number;
+};
+
 const DEFAULT_PLACEMENT_POINTS = [
   12, 9, 7, 5, 4, 3, 3, 2, 2, 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0,
 ];
+
+const INITIAL_EXTRA_TEAMS: ExtraTeamSeed[] = [{ id: "extra-1", name: "" }];
+
+const INITIAL_PLACEMENT_RULES: PlacementPointRule[] =
+  DEFAULT_PLACEMENT_POINTS.map((points, index) => ({
+    id: `placement-${index + 1}`,
+    points,
+  }));
+
+let rowIdCounter = 0;
+
+function makeRowId(prefix: string) {
+  rowIdCounter += 1;
+  return `${prefix}-${Date.now()}-${rowIdCounter}`;
+}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -37,15 +81,8 @@ function SubmitButton() {
 function moveItem<T>(items: T[], index: number, direction: -1 | 1) {
   const target = index + direction;
   if (target < 0 || target >= items.length) return items;
-  return reorderItem(items, index, target);
-}
-
-function reorderItem<T>(items: T[], from: number, to: number) {
-  if (from === to || from < 0 || to < 0) return items;
-  if (from >= items.length || to >= items.length) return items;
   const next = [...items];
-  const [item] = next.splice(from, 1);
-  next.splice(to, 0, item);
+  [next[index], next[target]] = [next[target], next[index]];
   return next;
 }
 
@@ -64,6 +101,60 @@ function ordinal(value: number) {
   }
 }
 
+function reorderById<T extends { id: string }>(
+  items: T[],
+  activeId: UniqueIdentifier,
+  overId: UniqueIdentifier | null | undefined,
+) {
+  if (!overId || activeId === overId) return items;
+  const oldIndex = items.findIndex((item) => item.id === activeId);
+  const newIndex = items.findIndex((item) => item.id === overId);
+  if (oldIndex === -1 || newIndex === -1) return items;
+  return arrayMove(items, oldIndex, newIndex);
+}
+
+function SortableDragHandle({ id, label }: { id: string; label: string }) {
+  const { attributes, listeners } = useSortable({ id });
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      className="text-muted-foreground hover:bg-transparent hover:text-foreground cursor-grab active:cursor-grabbing"
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="size-4" />
+      <span className="sr-only">{label}</span>
+    </Button>
+  );
+}
+
+function SortableRow({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const { isDragging, setNodeRef, transform, transition } = useSortable({ id });
+
+  return (
+    <li
+      ref={setNodeRef}
+      data-dragging={isDragging}
+      className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      {children}
+    </li>
+  );
+}
+
 export function CreateBrLobbyForm({
   orgs,
   teams,
@@ -74,20 +165,32 @@ export function CreateBrLobbyForm({
   defaultOrganizationId?: string;
 }) {
   const [state, formAction] = useActionState(createWebBrLobbyWithState, {});
+  const sortableSeedListId = useId();
+  const sortablePlacementListId = useId();
+  const sensors = useSensors(
+    useSensor(MouseSensor, {}),
+    useSensor(TouchSensor, {}),
+    useSensor(KeyboardSensor, {}),
+  );
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
-  const [extraTeams, setExtraTeams] = useState<string[]>([""]);
-  const [placementPoints, setPlacementPoints] = useState<number[]>(
-    DEFAULT_PLACEMENT_POINTS,
-  );
-  const [draggingExtraIndex, setDraggingExtraIndex] = useState<number | null>(
-    null,
-  );
-  const [draggingScoreIndex, setDraggingScoreIndex] = useState<number | null>(
-    null,
+  const [extraTeams, setExtraTeams] =
+    useState<ExtraTeamSeed[]>(INITIAL_EXTRA_TEAMS);
+  const [placementRules, setPlacementRules] = useState<PlacementPointRule[]>(
+    INITIAL_PLACEMENT_RULES,
   );
   const [clientError, setClientError] = useState("");
 
-  const extraTeamNames = extraTeams.map((name) => name.trim()).filter(Boolean);
+  const extraTeamNames = extraTeams
+    .map((team) => team.name.trim())
+    .filter(Boolean);
+  const extraTeamIds = useMemo<UniqueIdentifier[]>(
+    () => extraTeams.map((team) => team.id),
+    [extraTeams],
+  );
+  const placementRuleIds = useMemo<UniqueIdentifier[]>(
+    () => placementRules.map((rule) => rule.id),
+    [placementRules],
+  );
   const teamsById = useMemo(
     () => new Map(teams.map((team) => [team.id, team])),
     [teams],
@@ -229,7 +332,12 @@ export function CreateBrLobbyForm({
             type="button"
             size="sm"
             variant="outline"
-            onClick={() => setExtraTeams((items) => [...items, ""])}
+            onClick={() =>
+              setExtraTeams((items) => [
+                ...items,
+                { id: makeRowId("extra"), name: "" },
+              ])
+            }
           >
             <Plus />
             Add
@@ -238,117 +346,110 @@ export function CreateBrLobbyForm({
         <p className="text-muted-foreground text-xs">
           Drag the handle or use the arrows to reorder the seed list.
         </p>
-        <ol className="space-y-2">
-          {extraTeams.map((team, index) => {
-            const duplicate = duplicateKeys.has(team.trim().toLowerCase());
-            return (
-              <li
-                key={index}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  if (draggingExtraIndex === null) return;
-                  setExtraTeams((items) =>
-                    reorderItem(items, draggingExtraIndex, index),
-                  );
-                  setDraggingExtraIndex(null);
-                }}
-                className={cn(
-                  "grid grid-cols-[auto_4.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-transparent py-1",
-                  draggingExtraIndex === index && "opacity-50",
-                  draggingExtraIndex !== null &&
-                    draggingExtraIndex !== index &&
-                    "border-dashed border-border",
-                )}
-              >
-                <button
-                  type="button"
-                  draggable
-                  onDragStart={(event) => {
-                    setDraggingExtraIndex(index);
-                    event.dataTransfer.effectAllowed = "move";
-                    event.dataTransfer.setData("text/plain", String(index));
-                  }}
-                  onDragEnd={() => setDraggingExtraIndex(null)}
-                  className="text-muted-foreground hover:text-foreground cursor-grab rounded p-1 active:cursor-grabbing"
-                  aria-label={`Drag seed ${index + 1} to reorder`}
-                >
-                  <GripVertical className="size-4" />
-                </button>
-                <span className="text-muted-foreground text-xs tabular-nums">
-                  Seed {index + 1}
-                </span>
-                <input
-                  value={team}
-                  onChange={(event) =>
-                    setExtraTeams((items) =>
-                      items.map((entry, entryIndex) =>
-                        entryIndex === index ? event.target.value : entry,
-                      ),
-                    )
-                  }
-                  placeholder="Team name"
-                  aria-label={`Seed ${index + 1} team name`}
-                  maxLength={80}
-                  className={cn(
-                    "border-input bg-background h-9 rounded-lg border px-2.5 text-sm",
-                    duplicate &&
-                      "border-destructive focus-visible:ring-destructive/20",
-                  )}
-                />
-                <div className="flex gap-1">
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    disabled={index === 0}
-                    onClick={() =>
-                      setExtraTeams((items) => moveItem(items, index, -1))
-                    }
-                    aria-label="Move team up"
-                  >
-                    <ArrowUp />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    disabled={index === extraTeams.length - 1}
-                    onClick={() =>
-                      setExtraTeams((items) => moveItem(items, index, 1))
-                    }
-                    aria-label="Move team down"
-                  >
-                    <ArrowDown />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    disabled={extraTeams.length === 1 && !team}
-                    onClick={() =>
-                      setExtraTeams((items) =>
-                        items.length === 1
-                          ? [""]
-                          : items.filter((_, entryIndex) => entryIndex !== index),
-                      )
-                    }
-                    aria-label="Remove team"
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+        <DndContext
+          collisionDetection={closestCenter}
+          id={sortableSeedListId}
+          modifiers={[restrictToVerticalAxis]}
+          onDragEnd={(event: DragEndEvent) => {
+            setExtraTeams((items) => reorderById(items, event.active.id, event.over?.id));
+          }}
+          sensors={sensors}
+        >
+          <SortableContext
+            items={extraTeamIds}
+            strategy={verticalListSortingStrategy}
+          >
+            <ol className="space-y-2">
+              {extraTeams.map((team, index) => {
+                const duplicate = duplicateKeys.has(
+                  team.name.trim().toLowerCase(),
+                );
+                return (
+                  <SortableRow key={team.id} id={team.id}>
+                    <div className="grid grid-cols-[auto_4.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md py-1">
+                      <SortableDragHandle
+                        id={team.id}
+                        label={`Drag seed ${index + 1} to reorder`}
+                      />
+                      <span className="text-muted-foreground text-xs tabular-nums">
+                        Seed {index + 1}
+                      </span>
+                      <input
+                        value={team.name}
+                        onChange={(event) =>
+                          setExtraTeams((items) =>
+                            items.map((entry) =>
+                              entry.id === team.id
+                                ? { ...entry, name: event.target.value }
+                                : entry,
+                            ),
+                          )
+                        }
+                        placeholder="Team name"
+                        aria-label={`Seed ${index + 1} team name`}
+                        maxLength={80}
+                        className={cn(
+                          "border-input bg-background h-9 rounded-lg border px-2.5 text-sm",
+                          duplicate &&
+                            "border-destructive focus-visible:ring-destructive/20",
+                        )}
+                      />
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          disabled={index === 0}
+                          onClick={() =>
+                            setExtraTeams((items) => moveItem(items, index, -1))
+                          }
+                          aria-label="Move team up"
+                        >
+                          <ArrowUp />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          disabled={index === extraTeams.length - 1}
+                          onClick={() =>
+                            setExtraTeams((items) => moveItem(items, index, 1))
+                          }
+                          aria-label="Move team down"
+                        >
+                          <ArrowDown />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          disabled={extraTeams.length === 1 && !team.name}
+                          onClick={() =>
+                            setExtraTeams((items) =>
+                              items.length === 1
+                                ? [{ id: team.id, name: "" }]
+                                : items.filter((entry) => entry.id !== team.id),
+                            )
+                          }
+                          aria-label="Remove team"
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    </div>
+                  </SortableRow>
+                );
+              })}
+            </ol>
+          </SortableContext>
+        </DndContext>
       </section>
 
       <section className="space-y-3 rounded-lg border p-3 lg:col-span-3">
         <input
           type="hidden"
           name="placementPoints"
-          value={placementPoints.join(",")}
+          value={placementRules.map((rule) => rule.points).join(",")}
         />
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -362,7 +463,12 @@ export function CreateBrLobbyForm({
             type="button"
             size="sm"
             variant="outline"
-            onClick={() => setPlacementPoints((items) => [...items, 0])}
+            onClick={() =>
+              setPlacementRules((items) => [
+                ...items,
+                { id: makeRowId("placement"), points: 0 },
+              ])
+            }
           >
             <Plus />
             Add place
@@ -372,105 +478,104 @@ export function CreateBrLobbyForm({
           Example: if 1st place is 12 and kills are worth 1 point, a team with
           1st place and 5 kills receives 17 points for that game.
         </p>
-        <ol className="max-h-72 space-y-2 overflow-auto pr-1">
-          {placementPoints.map((points, index) => (
-            <li
-              key={index}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                if (draggingScoreIndex === null) return;
-                setPlacementPoints((items) =>
-                  reorderItem(items, draggingScoreIndex, index),
-                );
-                setDraggingScoreIndex(null);
-              }}
-              className={cn(
-                "grid grid-cols-[auto_8rem_minmax(0,1fr)_3rem_auto] items-center gap-2 rounded-md border border-transparent py-1",
-                draggingScoreIndex === index && "opacity-50",
-                draggingScoreIndex !== null &&
-                  draggingScoreIndex !== index &&
-                  "border-dashed border-border",
-              )}
-            >
-              <button
-                type="button"
-                draggable
-                onDragStart={(event) => {
-                  setDraggingScoreIndex(index);
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData("text/plain", String(index));
-                }}
-                onDragEnd={() => setDraggingScoreIndex(null)}
-                className="text-muted-foreground hover:text-foreground cursor-grab rounded p-1 active:cursor-grabbing"
-                aria-label={`Drag ${ordinal(index + 1)} place point rule to reorder`}
-              >
-                <GripVertical className="size-4" />
-              </button>
-              <span className="text-muted-foreground text-xs tabular-nums">
-                {ordinal(index + 1)} place
-              </span>
-              <input
-                type="number"
-                min={0}
-                max={999}
-                value={points}
-                aria-label={`Points for ${ordinal(index + 1)} place`}
-                onChange={(event) =>
-                  setPlacementPoints((items) =>
-                    items.map((entry, entryIndex) =>
-                      entryIndex === index
-                        ? Number.parseInt(event.target.value || "0", 10)
-                        : entry,
-                    ),
-                  )
-                }
-                className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
-              />
-              <span className="text-muted-foreground text-xs">pts</span>
-              <div className="flex gap-1">
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  disabled={index === 0}
-                  onClick={() =>
-                    setPlacementPoints((items) => moveItem(items, index, -1))
-                  }
-                  aria-label="Move placement score up"
-                >
-                  <ArrowUp />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  disabled={index === placementPoints.length - 1}
-                  onClick={() =>
-                    setPlacementPoints((items) => moveItem(items, index, 1))
-                  }
-                  aria-label="Move placement score down"
-                >
-                  <ArrowDown />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  disabled={placementPoints.length <= 1}
-                  onClick={() =>
-                    setPlacementPoints((items) =>
-                      items.filter((_, entryIndex) => entryIndex !== index),
-                    )
-                  }
-                  aria-label="Remove placement score"
-                >
-                  <Trash2 />
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <DndContext
+          collisionDetection={closestCenter}
+          id={sortablePlacementListId}
+          modifiers={[restrictToVerticalAxis]}
+          onDragEnd={(event: DragEndEvent) => {
+            setPlacementRules((items) =>
+              reorderById(items, event.active.id, event.over?.id),
+            );
+          }}
+          sensors={sensors}
+        >
+          <SortableContext
+            items={placementRuleIds}
+            strategy={verticalListSortingStrategy}
+          >
+            <ol className="max-h-72 space-y-2 overflow-auto pr-1">
+              {placementRules.map((rule, index) => (
+                <SortableRow key={rule.id} id={rule.id}>
+                  <div className="grid grid-cols-[auto_8rem_minmax(0,1fr)_3rem_auto] items-center gap-2 rounded-md py-1">
+                    <SortableDragHandle
+                      id={rule.id}
+                      label={`Drag ${ordinal(index + 1)} place point rule to reorder`}
+                    />
+                    <span className="text-muted-foreground text-xs tabular-nums">
+                      {ordinal(index + 1)} place
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={999}
+                      value={rule.points}
+                      aria-label={`Points for ${ordinal(index + 1)} place`}
+                      onChange={(event) =>
+                        setPlacementRules((items) =>
+                          items.map((entry) =>
+                            entry.id === rule.id
+                              ? {
+                                  ...entry,
+                                  points: Number.parseInt(
+                                    event.target.value || "0",
+                                    10,
+                                  ),
+                                }
+                              : entry,
+                          ),
+                        )
+                      }
+                      className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+                    />
+                    <span className="text-muted-foreground text-xs">pts</span>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        disabled={index === 0}
+                        onClick={() =>
+                          setPlacementRules((items) =>
+                            moveItem(items, index, -1),
+                          )
+                        }
+                        aria-label="Move placement score up"
+                      >
+                        <ArrowUp />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        disabled={index === placementRules.length - 1}
+                        onClick={() =>
+                          setPlacementRules((items) => moveItem(items, index, 1))
+                        }
+                        aria-label="Move placement score down"
+                      >
+                        <ArrowDown />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        disabled={placementRules.length <= 1}
+                        onClick={() =>
+                          setPlacementRules((items) =>
+                            items.filter((entry) => entry.id !== rule.id),
+                          )
+                        }
+                        aria-label="Remove placement score"
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </div>
+                </SortableRow>
+              ))}
+            </ol>
+          </SortableContext>
+        </DndContext>
       </section>
       <SubmitButton />
     </form>
