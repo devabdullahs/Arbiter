@@ -14,6 +14,7 @@ import {
 import { getLinkedDiscordId, getSession } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
+import { getCountryOptions } from "./options";
 import { ProfileSettingsForm } from "./profile-settings-form";
 
 export default async function SettingsPage({
@@ -86,6 +87,7 @@ export default async function SettingsPage({
         <CardContent>
           <ProfileSettingsForm
             key={profile?.updatedAt.toISOString() ?? discordId ?? session.user.id}
+            countryOptions={getCountryOptions()}
             profile={{
               displayName:
                 profile?.displayName ?? session.user.name ?? session.user.email ?? "",

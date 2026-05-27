@@ -16,16 +16,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 
 import { updateUserSettings } from "./actions";
-import { COUNTRY_CODES, FIELD_ROLE_OPTIONS, GAME_OPTIONS } from "./options";
-
-const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
-const COUNTRY_OPTIONS = [
-  ["", "Select country"],
-  ...COUNTRY_CODES
-    .filter((code) => /^[A-Z]{2}$/.test(code))
-    .map((code) => [code, regionNames.of(code) ?? code] as [string, string])
-    .sort((a, b) => a[1].localeCompare(b[1])),
-] as const;
+import { FIELD_ROLE_OPTIONS, GAME_OPTIONS } from "./options";
 
 type ProfileSettings = {
   displayName: string;
@@ -118,7 +109,13 @@ function SocialInput({
   );
 }
 
-export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
+export function ProfileSettingsForm({
+  profile,
+  countryOptions,
+}: {
+  profile: ProfileSettings;
+  countryOptions: [string, string][];
+}) {
   const selectedGames = new Set(profile.gameExperiences);
   const selectedRoles = new Set(profile.fieldRoles);
   const [bioLength, setBioLength] = useState(profile.bio.length);
@@ -172,7 +169,7 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
             defaultValue={profile.countryCode}
             className="h-8"
           >
-            {COUNTRY_OPTIONS.map(([value, label]) => (
+            {countryOptions.map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChevronRight, Home, MoreHorizontal } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 const LABELS: Record<string, string> = {
   audit: "Audit Log",
@@ -33,17 +33,34 @@ function segmentLabel(segment: string) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function crumbsForPath(pathname: string): Crumb[] {
+function crumbsForPath(pathname: string, from: string | null): Crumb[] {
   const segments = pathname.split("/").filter(Boolean);
   const crumbs: Crumb[] = [{ href: "/dashboard", label: "Home" }];
-  let href = "";
 
+  // /profiles/[discordId] has no /profiles index page. Show where the viewer
+  // came from (the player or workers list) as the parent crumb — a real link —
+  // instead of a broken /profiles link, mirroring the page's "Back to ..." button.
+  if (segments[0] === "profiles" && segments.length >= 2) {
+    // Mirror the profile page's "Back to ..." target based on where the viewer
+    // came from: their own settings preview, the player list, or the workers list.
+    const origin =
+      from === "settings"
+        ? { href: "/settings", label: "Profile" }
+        : from === "player"
+          ? { href: "/player", label: "Player" }
+          : { href: "/workers", label: "Workers" };
+    crumbs.push(origin);
+    crumbs.push({
+      href: `/profiles/${segments[1]}`,
+      label: segmentLabel(segments[1]),
+    });
+    return crumbs;
+  }
+
+  let href = "";
   for (const segment of segments) {
     href += `/${segment}`;
-    crumbs.push({
-      href: segment === "profiles" ? "/settings" : href,
-      label: segmentLabel(segment),
-    });
+    crumbs.push({ href, label: segmentLabel(segment) });
   }
 
   return crumbs;
@@ -51,7 +68,8 @@ function crumbsForPath(pathname: string): Crumb[] {
 
 export function DashboardBreadcrumbs() {
   const pathname = usePathname();
-  const crumbs = crumbsForPath(pathname);
+  const from = useSearchParams().get("from");
+  const crumbs = crumbsForPath(pathname, from);
   const compact = crumbs.length > 4;
   const visibleCrumbs = compact
     ? [crumbs[0], crumbs[crumbs.length - 2], crumbs[crumbs.length - 1]]

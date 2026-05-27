@@ -88,7 +88,11 @@ export async function listDiscordGuildOptions(userId: string) {
         manageable: canManageGuild(guild.permissions, guild.owner),
         botConfigured: configuredIds.has(guild.id),
       }))
-      .sort((a, b) => Number(b.manageable) - Number(a.manageable) || a.name.localeCompare(b.name)),
+      // Only show servers where this user can actually add the bot — owner, or
+      // has Manage Server / Administrator. They can't set up the rest, and the
+      // card still offers a manual server-ID fallback for edge cases.
+      .filter((guild) => guild.manageable)
+      .sort((a, b) => a.name.localeCompare(b.name)),
     needsReconnect: false,
   };
 }

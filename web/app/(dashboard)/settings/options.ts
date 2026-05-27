@@ -266,6 +266,20 @@ export const COUNTRY_CODES = [
   "XK",
 ] as const;
 
+// Resolve country display names server-side only. Computing these in a client
+// component caused hydration mismatches: Node's ICU and the browser's ICU
+// disagree on some names (e.g. "Falkland Islands (Islas Malvinas)" vs
+// "Falkland Islands"). The server builds the list once and passes it as a prop.
+export function getCountryOptions(): [string, string][] {
+  const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+  return [
+    ["", "Select country"],
+    ...COUNTRY_CODES.filter((code) => /^[A-Z]{2}$/.test(code))
+      .map((code) => [code, regionNames.of(code) ?? code] as [string, string])
+      .sort((a, b) => a[1].localeCompare(b[1])),
+  ];
+}
+
 export const FIELD_ROLE_OPTIONS = [
   "Tournament admin",
   "Head referee",
