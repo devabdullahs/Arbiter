@@ -36,7 +36,7 @@ export default async function SecurityPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Security"
+        title="Login & Security"
         description="Manage passkeys for your dashboard account."
       />
 

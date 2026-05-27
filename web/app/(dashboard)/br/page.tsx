@@ -15,6 +15,8 @@ import {
 import { getAccessContext } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
+import { createWebBrLobby } from "./actions";
+
 export default async function BrLobbiesPage() {
   const ctx = await getAccessContext();
   if (!ctx) return null;
@@ -52,6 +54,74 @@ export default async function BrLobbiesPage() {
         title="BR Lobbies"
         description={`${lobbies.length} most recent across your organizations.`}
       />
+      <Card>
+        <CardContent className="space-y-3 py-4">
+          <h2 className="text-sm font-medium">Create BR lobby</h2>
+          <form action={createWebBrLobby} className="grid gap-3 lg:grid-cols-6">
+            <select
+              name="organizationId"
+              defaultValue={ctx.activeOrg?.id ?? ctx.orgs[0]?.id}
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+            >
+              {ctx.orgs.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+            <input
+              name="name"
+              placeholder="Lobby name"
+              required
+              maxLength={80}
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm lg:col-span-2"
+            />
+            <select
+              name="game"
+              defaultValue="Apex Legends"
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+            >
+              <option>Apex Legends</option>
+              <option>Fortnite</option>
+              <option>PUBG Mobile</option>
+              <option>PUBG: Battlegrounds</option>
+              <option>Other</option>
+            </select>
+            <input
+              name="gamesPlanned"
+              type="number"
+              min={1}
+              max={50}
+              defaultValue={6}
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+            />
+            <input
+              name="killPoints"
+              type="number"
+              min={0}
+              max={20}
+              defaultValue={1}
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+            />
+            <textarea
+              name="teams"
+              required
+              placeholder="Teams, one per line"
+              maxLength={3000}
+              className="border-input bg-background min-h-28 rounded-lg border px-2.5 py-2 text-sm lg:col-span-4"
+            />
+            <textarea
+              name="placementPoints"
+              placeholder="Optional placement points: 12,9,7,5..."
+              maxLength={1000}
+              className="border-input bg-background min-h-28 rounded-lg border px-2.5 py-2 text-sm lg:col-span-2"
+            />
+            <Button type="submit" className="lg:col-start-6">
+              Create
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
       <div className="grid gap-3 md:hidden">
         {lobbies.length === 0 ? (
           <Card>

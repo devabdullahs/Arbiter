@@ -26,6 +26,9 @@ export default async function SettingsPage() {
           profileVisibility: true,
           openToWork: true,
           avatarUrl: true,
+          contactEmail: true,
+          showContactEmail: true,
+          socialLinks: true,
           gameExperiences: true,
           fieldRoles: true,
         },
@@ -35,7 +38,7 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Settings"
+        title="Profile"
         description="Keep your referee profile accurate so assignments and handoffs are faster."
       />
 
@@ -57,6 +60,9 @@ export default async function SettingsPage() {
               profileVisibility: profile?.profileVisibility ?? "private",
               openToWork: profile?.openToWork ?? false,
               avatarUrl: profile?.avatarUrl ?? session.user.image ?? null,
+              contactEmail: profile?.contactEmail ?? session.user.email ?? "",
+              showContactEmail: profile?.showContactEmail ?? false,
+              socialLinks: profile?.socialLinks,
               gameExperiences: profile?.gameExperiences ?? [],
               fieldRoles: profile?.fieldRoles ?? [],
               discordId,

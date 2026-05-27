@@ -32,7 +32,7 @@ import { NavUser, type NavUserData } from "@/components/nav-user";
 import { OrgSwitcher } from "@/components/org-switcher";
 import type { AccessibleOrg } from "@/lib/auth-session";
 
-const nav = [
+const operationsNav = [
   { title: "Overview", href: "/", icon: LayoutDashboard },
   { title: "Matches", href: "/matches", icon: Swords },
   { title: "BR Lobbies", href: "/br", icon: Trophy },
@@ -41,9 +41,15 @@ const nav = [
   { title: "Player", href: "/player", icon: Users },
   { title: "Evidence", href: "/evidence", icon: ImageIcon },
   { title: "Audit Log", href: "/audit", icon: ScrollText },
+] as const;
+
+const organizationNav = [
   { title: "Organization", href: "/org", icon: Building2 },
-  { title: "Settings", href: "/settings", icon: Settings },
-  { title: "Security", href: "/security", icon: ShieldCheck },
+] as const;
+
+const accountNav = [
+  { title: "Profile", href: "/settings", icon: Settings },
+  { title: "Login & Security", href: "/security", icon: ShieldCheck },
 ] as const;
 
 export function AppSidebar({
@@ -66,7 +72,7 @@ export function AppSidebar({
         <SidebarGroup>
           <SidebarGroupLabel>Operations</SidebarGroupLabel>
           <SidebarMenu>
-            {nav.map((item) => {
+            {operationsNav.map((item) => {
               const active =
                 item.href === "/"
                   ? pathname === "/"
@@ -86,6 +92,44 @@ export function AppSidebar({
                 </SidebarMenuItem>
               );
             })}
+          </SidebarMenu>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Organization</SidebarGroupLabel>
+          <SidebarMenu>
+            {organizationNav.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname.startsWith(item.href)}
+                  tooltip={item.title}
+                >
+                  <Link href={item.href}>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Account</SidebarGroupLabel>
+          <SidebarMenu>
+            {accountNav.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname.startsWith(item.href)}
+                  tooltip={item.title}
+                >
+                  <Link href={item.href}>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

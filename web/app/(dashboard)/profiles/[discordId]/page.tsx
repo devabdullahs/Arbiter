@@ -14,6 +14,7 @@ import { getLinkedDiscordId, getSession } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
 import { requestProfileConnection } from "./actions";
+import { saveWorker } from "./actions";
 
 function canSeeFullProfile({
   isSelf,
@@ -25,6 +26,23 @@ function canSeeFullProfile({
   connected: boolean;
 }) {
   return isSelf || visibility === "public" || (visibility === "connections" && connected);
+}
+
+function socialLinks(socialLinksValue: unknown, discordUserId: string) {
+  const social =
+    socialLinksValue && typeof socialLinksValue === "object"
+      ? (socialLinksValue as Record<string, unknown>)
+      : {};
+  const links = [];
+  const linkedin = typeof social.linkedin === "string" ? social.linkedin : "";
+  const x = typeof social.x === "string" ? social.x : "";
+  const instagram = typeof social.instagram === "string" ? social.instagram : "";
+  const discord = typeof social.discord === "string" ? social.discord : "";
+  if (linkedin) links.push(["LinkedIn", `https://www.linkedin.com/in/${linkedin}`]);
+  if (x) links.push(["X", `https://x.com/${x}`]);
+  if (instagram) links.push(["Instagram", `https://www.instagram.com/${instagram}`]);
+  if (discord) links.push(["Discord", `https://discord.com/users/${discordUserId}`]);
+  return links;
 }
 
 export default async function ProfilePage({
@@ -58,6 +76,10 @@ export default async function ProfilePage({
         where: { requesterId: viewer?.id ?? "__none__" },
         select: { status: true },
       },
+      savedByProfiles: {
+        where: { ownerId: viewer?.id ?? "__none__" },
+        select: { priority: true, note: true },
+      },
     },
   });
 
@@ -65,12 +87,15 @@ export default async function ProfilePage({
 
   const isSelf = viewer?.id === profile.id;
   const request = profile.receivedProfileRequests[0];
+  const saved = profile.savedByProfiles[0];
   const visible = canSeeFullProfile({
     isSelf,
     visibility: profile.profileVisibility,
     connected: request?.status === "accepted",
   });
   const requestAction = requestProfileConnection.bind(null, profile.id);
+  const saveAction = saveWorker.bind(null, profile.id);
+  const links = socialLinks(profile.socialLinks, profile.discordUserId);
 
   return (
     <div className="space-y-6">
@@ -94,8 +119,34 @@ export default async function ProfilePage({
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">{profile.profileVisibility}</Badge>
           {profile.openToWork ? <Badge>Open to work</Badge> : null}
+          {saved ? (
+            <Badge variant={saved.priority ? "default" : "secondary"}>
+              {saved.priority ? "Priority" : "Saved"}
+            </Badge>
+          ) : null}
         </div>
       </div>
+
+      {!isSelf ? (
+        <Card>
+          <CardContent className="py-4">
+            <form action={saveAction} className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
+              <input
+                name="note"
+                defaultValue={saved?.note ?? ""}
+                placeholder="Private note for your worker list"
+                maxLength={300}
+                className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+              />
+              <label className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm">
+                <input type="checkbox" name="priority" defaultChecked={saved?.priority ?? false} />
+                Priority
+              </label>
+              <Button type="submit">{saved ? "Update saved" : "Save worker"}</Button>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {!visible ? (
         <Card>
@@ -144,6 +195,25 @@ export default async function ProfilePage({
                   </Badge>
                 ))}
               </div>
+              {profile.showContactEmail && profile.contactEmail ? (
+                <a
+                  href={`mailto:${profile.contactEmail}`}
+                  className="text-primary text-sm hover:underline"
+                >
+                  {profile.contactEmail}
+                </a>
+              ) : null}
+              {links.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {links.map(([label, href]) => (
+                    <Button key={label} asChild variant="outline" size="sm">
+                      <a href={href} target="_blank" rel="noopener noreferrer">
+                        {label}
+                      </a>
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 

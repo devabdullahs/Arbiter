@@ -15,6 +15,8 @@ import {
 import { getAccessContext } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
 
+import { createWebMatch } from "./actions";
+
 export default async function MatchesPage() {
   const ctx = await getAccessContext();
   if (!ctx) return null;
@@ -53,6 +55,78 @@ export default async function MatchesPage() {
         title="Matches"
         description={`${matches.length} most recent across your organizations.`}
       />
+      <Card>
+        <CardContent className="space-y-3 py-4">
+          <h2 className="text-sm font-medium">Create match</h2>
+          <form action={createWebMatch} className="grid gap-3 lg:grid-cols-6">
+            <select
+              name="organizationId"
+              defaultValue={ctx.activeOrg?.id ?? ctx.orgs[0]?.id}
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+            >
+              {ctx.orgs.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+            <input
+              name="teamAName"
+              placeholder="Team A"
+              required
+              maxLength={80}
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+            />
+            <input
+              name="teamBName"
+              placeholder="Team B"
+              required
+              maxLength={80}
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+            />
+            <input
+              name="bestOf"
+              type="number"
+              min={1}
+              max={99}
+              defaultValue={3}
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+            />
+            <select
+              name="rulesPreset"
+              defaultValue="generic"
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+            >
+              <option value="generic">Generic</option>
+              <option value="valorant">Valorant</option>
+              <option value="overwatch">Overwatch</option>
+              <option value="r6s">Rainbow Six Siege</option>
+              <option value="cod">Call of Duty</option>
+              <option value="rocket_league">Rocket League</option>
+            </select>
+            <Button type="submit">Create</Button>
+            <textarea
+              name="mapPool"
+              placeholder="Optional custom map pool, comma-separated or one per line"
+              maxLength={2000}
+              className="border-input bg-background min-h-20 rounded-lg border px-2.5 py-2 text-sm lg:col-span-4"
+            />
+            <select
+              name="vetoMode"
+              defaultValue="series_picks"
+              className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+            >
+              <option value="series_picks">Series picks</option>
+              <option value="final_map_ban">Final map ban</option>
+              <option value="manual_picks">Manual picks</option>
+            </select>
+            <label className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm">
+              <input type="checkbox" name="allowPlayerReports" />
+              Player reports
+            </label>
+          </form>
+        </CardContent>
+      </Card>
       <div className="grid gap-3 md:hidden">
         {matches.length === 0 ? (
           <Card>

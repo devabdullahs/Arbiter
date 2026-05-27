@@ -33,3 +33,29 @@ export async function requestProfileConnection(targetId: string, formData: FormD
 
   revalidatePath("/profiles");
 }
+
+export async function saveWorker(targetId: string, formData: FormData) {
+  const { profile } = await requireUserProfile();
+  if (profile.id === targetId) return;
+
+  await prisma.workerFavorite.upsert({
+    where: {
+      ownerId_workerId: {
+        ownerId: profile.id,
+        workerId: targetId,
+      },
+    },
+    update: {
+      priority: formData.get("priority") === "on",
+      note: cleanMessage(formData.get("note")) || null,
+    },
+    create: {
+      ownerId: profile.id,
+      workerId: targetId,
+      priority: formData.get("priority") === "on",
+      note: cleanMessage(formData.get("note")) || null,
+    },
+  });
+
+  revalidatePath("/workers");
+}

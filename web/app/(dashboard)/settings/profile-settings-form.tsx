@@ -39,10 +39,19 @@ type ProfileSettings = {
   profileVisibility: string;
   openToWork: boolean;
   avatarUrl: string | null;
+  contactEmail: string;
+  showContactEmail: boolean;
+  socialLinks: unknown;
   gameExperiences: string[];
   fieldRoles: string[];
   discordId: string | null;
 };
+
+function socialValue(socialLinks: unknown, key: string) {
+  if (!socialLinks || typeof socialLinks !== "object") return "";
+  const value = (socialLinks as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : "";
+}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -153,6 +162,65 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
           Maximum 500 characters.
         </span>
       </label>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-medium">Contact and social links</h2>
+          <p className="text-muted-foreground text-sm">
+            Enter usernames only. Arbiter builds the links automatically.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Public email</span>
+            <Input
+              name="contactEmail"
+              type="email"
+              defaultValue={profile.contactEmail}
+              maxLength={180}
+              placeholder="name@example.com"
+            />
+          </label>
+          <label className="flex min-h-20 items-center gap-3 rounded-lg border p-3">
+            <input
+              type="checkbox"
+              name="showContactEmail"
+              defaultChecked={profile.showContactEmail}
+              className="size-4"
+            />
+            <span>
+              <span className="block text-sm font-medium">Show email</span>
+              <span className="text-muted-foreground block text-sm">
+                Display this email on visible profile pages.
+              </span>
+            </span>
+          </label>
+          <Input
+            name="linkedin"
+            defaultValue={socialValue(profile.socialLinks, "linkedin")}
+            placeholder="LinkedIn username"
+            maxLength={80}
+          />
+          <Input
+            name="x"
+            defaultValue={socialValue(profile.socialLinks, "x")}
+            placeholder="X / Twitter username"
+            maxLength={80}
+          />
+          <Input
+            name="instagram"
+            defaultValue={socialValue(profile.socialLinks, "instagram")}
+            placeholder="Instagram username"
+            maxLength={80}
+          />
+          <Input
+            name="discord"
+            defaultValue={socialValue(profile.socialLinks, "discord")}
+            placeholder="Discord username"
+            maxLength={80}
+          />
+        </div>
+      </section>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-2">

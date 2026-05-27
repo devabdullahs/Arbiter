@@ -45,6 +45,19 @@ function cleanVisibility(value: FormDataEntryValue | null) {
     : "private";
 }
 
+function cleanHandle(value: FormDataEntryValue | null, max = 80) {
+  return String(value ?? "")
+    .trim()
+    .replace(/^@/, "")
+    .replace(/[^\w.\-]/g, "")
+    .slice(0, max);
+}
+
+function cleanEmail(value: FormDataEntryValue | null) {
+  const email = String(value ?? "").trim().toLowerCase().slice(0, 180);
+  return email && email.includes("@") ? email : "";
+}
+
 async function saveAvatar(profileId: string, value: FormDataEntryValue | null) {
   if (!(value instanceof File) || value.size === 0) return null;
 
@@ -79,6 +92,14 @@ export async function updateUserSettings(formData: FormData) {
   const bio = cleanText(formData.get("bio"), MAX_BIO_LENGTH);
   const profileVisibility = cleanVisibility(formData.get("profileVisibility"));
   const openToWork = formData.get("openToWork") === "on";
+  const contactEmail = cleanEmail(formData.get("contactEmail"));
+  const showContactEmail = formData.get("showContactEmail") === "on";
+  const socialLinks = {
+    linkedin: cleanHandle(formData.get("linkedin")),
+    x: cleanHandle(formData.get("x")),
+    instagram: cleanHandle(formData.get("instagram")),
+    discord: cleanHandle(formData.get("discord")),
+  };
   const gameExperiences = cleanMulti(formData, "gameExperiences", GAME_OPTIONS);
   const fieldRoles = cleanMulti(formData, "fieldRoles", FIELD_ROLE_OPTIONS);
 
@@ -99,6 +120,9 @@ export async function updateUserSettings(formData: FormData) {
         bio: bio || null,
         profileVisibility,
         openToWork,
+        contactEmail: contactEmail || null,
+        showContactEmail: Boolean(contactEmail && showContactEmail),
+        socialLinks,
         gameExperiences,
         fieldRoles,
       },
@@ -109,6 +133,9 @@ export async function updateUserSettings(formData: FormData) {
         bio: bio || null,
         profileVisibility,
         openToWork,
+        contactEmail: contactEmail || null,
+        showContactEmail: Boolean(contactEmail && showContactEmail),
+        socialLinks,
         gameExperiences,
         fieldRoles,
       },

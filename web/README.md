@@ -36,10 +36,12 @@ Open http://localhost:3000.
 - Match detail pages support web score logging, evidence uploads/links, and
   status/ruling updates. These writes queue Discord panel refresh jobs for the
   bot process.
+- Matches and BR lobbies can be created directly from the dashboard.
 - Worker discovery lets org owners/admins filter public or open-to-work
-  profiles by game, role, and country.
-- The Player page lets members create teams and view teammates separately from
-  referee/admin operations.
+  profiles by game, role, and country. Profiles can expose predefined social
+  links, public email, and saved/priority worker state.
+- The Player page lets members create teams, add/remove teammates as captain,
+  and view teammates separately from referee/admin operations.
 - The sidebar organization switcher scopes dashboard pages to the selected org.
 - Users can link or disconnect Discord from Security, and create a new org from
   the Organization page after Discord is linked.

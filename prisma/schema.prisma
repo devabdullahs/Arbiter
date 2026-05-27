@@ -335,12 +335,17 @@ model UserProfile {
   avatarMimeType          String?
   avatarSizeBytes         Int?
   avatarUpdatedAt         DateTime?
+  contactEmail            String?
+  showContactEmail        Boolean                    @default(false)
+  socialLinks             Json?
   gameExperiences         String[]                   @default([])
   fieldRoles              String[]                   @default([])
   linkedAccounts          LinkedAccount[]
   memberships             OrgMember[]
   teamMembers             TeamMember[]
   captainedTeams          Team[]                     @relation("TeamCaptain")
+  workerFavorites         WorkerFavorite[]           @relation("WorkerFavoriteOwner")
+  savedByProfiles         WorkerFavorite[]           @relation("WorkerFavoriteWorker")
   sentProfileRequests     ProfileConnectionRequest[] @relation("ProfileConnectionRequester")
   receivedProfileRequests ProfileConnectionRequest[] @relation("ProfileConnectionTarget")
   checkins                Checkin[]
@@ -352,6 +357,21 @@ model UserProfile {
   standaloneLogs          StandaloneLog[]
   createdAt               DateTime                   @default(now())
   updatedAt               DateTime                   @updatedAt
+}
+
+model WorkerFavorite {
+  id        String      @id @default(cuid())
+  ownerId   String
+  workerId  String
+  priority  Boolean     @default(false)
+  note      String?
+  owner     UserProfile @relation("WorkerFavoriteOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  worker    UserProfile @relation("WorkerFavoriteWorker", fields: [workerId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@unique([ownerId, workerId])
+  @@index([workerId])
 }
 
 model ProfileConnectionRequest {

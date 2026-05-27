@@ -36,6 +36,12 @@ export default async function WorkersPage({
   const managerOrgs = ctx.orgs.filter(
     (org) => org.role === OrgMemberRole.OWNER || org.role === OrgMemberRole.ADMIN,
   );
+  const viewer = ctx.discordId
+    ? await prisma.userProfile.findUnique({
+        where: { discordUserId: ctx.discordId },
+        select: { id: true },
+      })
+    : null;
   const params = await searchParams;
   const game = typeof params.game === "string" ? params.game : "";
   const role = typeof params.role === "string" ? params.role : "";
@@ -57,16 +63,32 @@ export default async function WorkersPage({
     );
   }
 
-  const workers = await prisma.userProfile.findMany({
+  const [workers, savedWorkers] = await Promise.all([
+    prisma.userProfile.findMany({
     where: {
       OR: [{ openToWork: true }, { profileVisibility: "public" }],
       ...(game ? { gameExperiences: { has: game } } : {}),
       ...(role ? { fieldRoles: { has: role } } : {}),
       ...(country ? { countryCode: country } : {}),
     },
+    include: {
+      savedByProfiles: {
+        where: { ownerId: viewer?.id ?? "__none__" },
+        select: { priority: true },
+      },
+    },
     orderBy: [{ openToWork: "desc" }, { updatedAt: "desc" }],
     take: 100,
-  });
+    }),
+    viewer
+      ? prisma.workerFavorite.findMany({
+          where: { ownerId: viewer.id },
+          orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
+          take: 12,
+          include: { worker: true },
+        })
+      : [],
+  ]);
 
   return (
     <div className="space-y-6">
@@ -114,6 +136,34 @@ export default async function WorkersPage({
         </CardContent>
       </Card>
 
+      {savedWorkers.length ? (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium">Saved workers</h2>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {savedWorkers.map((saved) => (
+              <Card key={saved.id}>
+                <CardContent className="space-y-3 py-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-medium">
+                        {saved.worker.displayName ?? saved.worker.discordUserId}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {saved.note ?? "No note"}
+                      </p>
+                    </div>
+                    {saved.priority ? <Badge>Priority</Badge> : <Badge variant="outline">Saved</Badge>}
+                  </div>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link href={`/profiles/${saved.worker.discordUserId}`}>Open profile</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {workers.length === 0 ? (
           <Card>
@@ -142,8 +192,8 @@ export default async function WorkersPage({
                     </CardTitle>
                     <CardDescription>
                       {worker.countryCode ?? "No country"}{" "}
-                      {worker.openToWork ? "/ open to work" : ""}
-                    </CardDescription>
+                  {worker.openToWork ? "/ open to work" : ""}
+                </CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -152,6 +202,11 @@ export default async function WorkersPage({
                   {worker.bio ?? "No bio added."}
                 </p>
                 <div className="flex flex-wrap gap-2">
+                  {worker.savedByProfiles[0] ? (
+                    <Badge variant={worker.savedByProfiles[0].priority ? "default" : "outline"}>
+                      {worker.savedByProfiles[0].priority ? "Priority" : "Saved"}
+                    </Badge>
+                  ) : null}
                   {worker.gameExperiences.slice(0, 3).map((item) => (
                     <Badge key={item} variant="secondary">
                       {item}

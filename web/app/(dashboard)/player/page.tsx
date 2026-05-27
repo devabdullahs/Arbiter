@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { prisma } from "@/lib/prisma";
 import { requireUserProfile } from "@/lib/web-authz";
 
-import { createPlayerTeam } from "./actions";
+import { addTeamMember, createPlayerTeam, removeTeamMember } from "./actions";
 
 export default async function PlayerDashboardPage() {
   const { profile } = await requireUserProfile();
@@ -103,19 +103,39 @@ export default async function PlayerDashboardPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
+                {team.captainProfileId === profile.id ? (
+                  <form action={addTeamMember} className="space-y-2 rounded-lg border p-3">
+                    <input type="hidden" name="teamId" value={team.id} />
+                    <Input name="displayName" placeholder="Player display name" maxLength={80} />
+                    <Input name="discordUserId" placeholder="Discord user ID (optional)" inputMode="numeric" />
+                    <Button type="submit" className="w-full" variant="outline">
+                      Add teammate
+                    </Button>
+                  </form>
+                ) : null}
                 {team.members.map((member) => (
                   <div
                     key={member.id}
                     className="flex items-center justify-between rounded-lg border p-2 text-sm"
                   >
                     <span>{member.displayName}</span>
-                    {member.userProfile?.discordUserId ? (
-                      <Button asChild variant="ghost" size="sm">
-                        <Link href={`/profiles/${member.userProfile.discordUserId}`}>
-                          Profile
-                        </Link>
-                      </Button>
-                    ) : null}
+                    <div className="flex items-center gap-1">
+                      {member.userProfile?.discordUserId ? (
+                        <Button asChild variant="ghost" size="sm">
+                          <Link href={`/profiles/${member.userProfile.discordUserId}`}>
+                            Profile
+                          </Link>
+                        </Button>
+                      ) : null}
+                      {team.captainProfileId === profile.id && member.userProfileId !== profile.id ? (
+                        <form action={removeTeamMember}>
+                          <input type="hidden" name="memberId" value={member.id} />
+                          <Button type="submit" variant="ghost" size="sm">
+                            Remove
+                          </Button>
+                        </form>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
               </CardContent>
