@@ -39,7 +39,6 @@ const staffNav = [
   { title: "BR Lobbies", href: "/br", icon: Trophy },
   { title: "Referees", href: "/referees", icon: Gavel },
   { title: "Workers", href: "/workers", icon: Search },
-  { title: "Player", href: "/player", icon: Users },
   { title: "Evidence", href: "/evidence", icon: ImageIcon },
   { title: "Audit Log", href: "/audit", icon: ScrollText },
 ] as const;
