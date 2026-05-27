@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/dashboard-ui";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -11,9 +12,14 @@ import { prisma } from "@/lib/prisma";
 
 import { ProfileSettingsForm } from "./profile-settings-form";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ saved?: string }>;
+}) {
   const session = await getSession();
   if (!session) return null;
+  const params = searchParams ? await searchParams : {};
 
   const discordId = await getLinkedDiscordId(session.user.id);
   const profile = discordId
@@ -41,6 +47,11 @@ export default async function SettingsPage() {
         title="Profile"
         description="Keep your referee profile accurate so assignments and handoffs are faster."
       />
+      {params.saved ? (
+        <Badge variant="secondary" className="w-fit">
+          Profile saved
+        </Badge>
+      ) : null}
 
       <Card>
         <CardHeader>

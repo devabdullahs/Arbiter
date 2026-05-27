@@ -22,6 +22,25 @@ import { markPasskeyUsed } from "./actions";
 const LAST_USED_COOKIE = "better-auth.last_used_login_method";
 const EMAIL_METHODS = new Set(["email", "magic-link", "email-otp"]);
 
+function errorMessage(error: unknown, fallback: string) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return fallback;
+}
+
+function getRedirectUrl(result: unknown) {
+  if (!result || typeof result !== "object" || !("data" in result)) return "";
+  const data = result.data;
+  if (!data || typeof data !== "object" || !("url" in data)) return "";
+  return typeof data.url === "string" ? data.url : "";
+}
+
 function LastUsedPill() {
   return (
     <span className="bg-background text-muted-foreground pointer-events-none absolute -top-2 right-3 rounded-full border px-2 py-0.5 text-[10px] font-medium shadow-sm">
@@ -54,52 +73,69 @@ function LoginCard() {
 
   async function handleDiscord() {
     setPending("discord");
-    await authClient.signIn.social({
-      provider: "discord",
-      callbackURL,
-      scopes: ["identify", "email", "guilds"],
-      errorCallbackURL: appendAuthNotice(
-        `/login?callbackURL=${encodeURIComponent(callbackURL)}`,
-        "discord-signin-cancelled",
-      ),
-    });
-    setPending(null);
+    try {
+      const result = await authClient.signIn.social({
+        provider: "discord",
+        callbackURL,
+        scopes: ["identify", "email", "guilds"],
+        errorCallbackURL: appendAuthNotice(
+          `/login?callbackURL=${encodeURIComponent(callbackURL)}`,
+          "discord-signin-cancelled",
+        ),
+      });
+      const redirectUrl = getRedirectUrl(result);
+      if (redirectUrl) window.location.assign(redirectUrl);
+    } catch (error) {
+      toast.error(errorMessage(error, "Discord sign-in could not start."));
+    } finally {
+      setPending(null);
+    }
   }
 
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
     if (!email) return;
     setPending("email");
-    const { error } = await authClient.signIn.magicLink({
-      email,
-      callbackURL,
-    });
-    setPending(null);
-    if (error) {
-      toast.error(error.message ?? "Could not send the sign-in link.");
-    } else {
-      toast.success(
-        "Check your email for a sign-in link. (In development it prints to the server console.)",
-      );
+    try {
+      const { error } = await authClient.signIn.magicLink({
+        email,
+        callbackURL,
+      });
+      if (error) {
+        toast.error(error.message ?? "Could not send the sign-in link.");
+      } else {
+        toast.success(
+          "Check your email for a sign-in link. (In development it prints to the server console.)",
+        );
+      }
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not send the sign-in link."));
+    } finally {
+      setPending(null);
     }
   }
 
   async function handlePasskey() {
     setPending("passkey");
-    const res = await authClient.signIn.passkey({
-      returnWebAuthnResponse: true,
-    });
-    setPending(null);
-    if (res?.error) {
-      toast.error(
-        res.error.message ?? "Passkey sign-in failed or was cancelled.",
-      );
-      return;
+    try {
+      const res = await authClient.signIn.passkey({
+        returnWebAuthnResponse: true,
+      });
+      if (res?.error) {
+        toast.error(
+          res.error.message ?? "Passkey sign-in failed or was cancelled.",
+        );
+        return;
+      }
+      if (res && typeof res === "object" && "webauthn" in res) {
+        await markPasskeyUsed(res.webauthn.response.id);
+      }
+      window.location.href = callbackURL;
+    } catch (error) {
+      toast.error(errorMessage(error, "Passkey sign-in failed or was cancelled."));
+    } finally {
+      setPending(null);
     }
-    if ("webauthn" in res) {
-      await markPasskeyUsed(res.webauthn.response.id);
-    }
-    window.location.href = callbackURL;
   }
 
   return (
@@ -122,9 +158,10 @@ function LoginCard() {
 
           <div className="relative">
             <Button
+              type="button"
               onClick={handleDiscord}
               disabled={pending !== null}
-              className="w-full"
+              className="w-full touch-manipulation"
               variant="outline"
             >
               Continue with Discord
@@ -151,7 +188,7 @@ function LoginCard() {
               <Button
                 type="submit"
                 disabled={pending !== null}
-                className="w-full"
+                className="w-full touch-manipulation"
               >
                 Email me a sign-in link
               </Button>
@@ -161,8 +198,9 @@ function LoginCard() {
 
           <div className="relative">
             <Button
+              type="button"
               variant="outline"
-              className="w-full"
+              className="w-full touch-manipulation"
               onClick={handlePasskey}
               disabled={pending !== null}
             >

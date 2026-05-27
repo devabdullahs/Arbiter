@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { getLinkedDiscordId, getSession } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
@@ -153,4 +154,5 @@ export async function updateUserSettings(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/profiles");
   revalidatePath("/");
+  redirect("/settings?saved=1");
 }

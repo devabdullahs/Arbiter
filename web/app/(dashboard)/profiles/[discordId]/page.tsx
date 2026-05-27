@@ -1,4 +1,11 @@
 import { notFound } from "next/navigation";
+import {
+  AtSign,
+  BriefcaseBusiness,
+  Camera,
+  Mail,
+  MessageCircle,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/dashboard-ui";
 import { Badge } from "@/components/ui/badge";
@@ -38,10 +45,30 @@ function socialLinks(socialLinksValue: unknown, discordUserId: string) {
   const x = typeof social.x === "string" ? social.x : "";
   const instagram = typeof social.instagram === "string" ? social.instagram : "";
   const discord = typeof social.discord === "string" ? social.discord : "";
-  if (linkedin) links.push(["LinkedIn", `https://www.linkedin.com/in/${linkedin}`]);
-  if (x) links.push(["X", `https://x.com/${x}`]);
-  if (instagram) links.push(["Instagram", `https://www.instagram.com/${instagram}`]);
-  if (discord) links.push(["Discord", `https://discord.com/users/${discordUserId}`]);
+  if (linkedin) {
+    links.push({
+      href: `https://www.linkedin.com/in/${linkedin}`,
+      Icon: BriefcaseBusiness,
+      label: "LinkedIn",
+    });
+  }
+  if (x) {
+    links.push({ href: `https://x.com/${x}`, Icon: AtSign, label: "X" });
+  }
+  if (instagram) {
+    links.push({
+      href: `https://www.instagram.com/${instagram}`,
+      Icon: Camera,
+      label: "Instagram",
+    });
+  }
+  if (discord) {
+    links.push({
+      href: `https://discord.com/users/${discordUserId}`,
+      Icon: MessageCircle,
+      label: "Discord",
+    });
+  }
   return links;
 }
 
@@ -196,18 +223,19 @@ export default async function ProfilePage({
                 ))}
               </div>
               {profile.showContactEmail && profile.contactEmail ? (
-                <a
-                  href={`mailto:${profile.contactEmail}`}
-                  className="text-primary text-sm hover:underline"
-                >
-                  {profile.contactEmail}
-                </a>
+                <Button asChild variant="outline" size="sm">
+                  <a href={`mailto:${profile.contactEmail}`}>
+                    <Mail />
+                    {profile.contactEmail}
+                  </a>
+                </Button>
               ) : null}
               {links.length ? (
                 <div className="flex flex-wrap gap-2">
-                  {links.map(([label, href]) => (
+                  {links.map(({ href, Icon, label }) => (
                     <Button key={label} asChild variant="outline" size="sm">
                       <a href={href} target="_blank" rel="noopener noreferrer">
+                        <Icon />
                         {label}
                       </a>
                     </Button>

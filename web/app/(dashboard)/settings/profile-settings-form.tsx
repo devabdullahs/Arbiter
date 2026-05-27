@@ -1,7 +1,14 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import { Save } from "lucide-react";
+import {
+  AtSign,
+  BriefcaseBusiness,
+  Camera,
+  Mail,
+  MessageCircle,
+  Save,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +89,43 @@ function CheckboxPill({
         className="size-4"
       />
       <span>{value}</span>
+    </label>
+  );
+}
+
+function SocialInput({
+  name,
+  label,
+  prefix,
+  icon: Icon,
+  defaultValue,
+  placeholder,
+}: {
+  name: string;
+  label: string;
+  prefix: string;
+  icon: React.ComponentType<{ className?: string }>;
+  defaultValue: string;
+  placeholder: string;
+}) {
+  return (
+    <label className="space-y-2">
+      <span className="flex items-center gap-2 text-sm font-medium">
+        <Icon className="size-4" />
+        {label}
+      </span>
+      <div className="border-input bg-background focus-within:border-ring focus-within:ring-ring/50 flex h-9 overflow-hidden rounded-lg border focus-within:ring-3">
+        <span className="bg-muted text-muted-foreground hidden items-center border-r px-2 text-xs sm:flex">
+          {prefix}
+        </span>
+        <input
+          name={name}
+          defaultValue={defaultValue}
+          placeholder={placeholder}
+          maxLength={80}
+          className="min-w-0 flex-1 bg-transparent px-2.5 text-sm outline-none"
+        />
+      </div>
     </label>
   );
 }
@@ -172,7 +216,10 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="space-y-2">
-            <span className="text-sm font-medium">Public email</span>
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <Mail className="size-4" />
+              Public email
+            </span>
             <Input
               name="contactEmail"
               type="email"
@@ -195,29 +242,37 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileSettings }) {
               </span>
             </span>
           </label>
-          <Input
+          <SocialInput
             name="linkedin"
+            label="LinkedIn"
+            prefix="linkedin.com/in/"
+            icon={BriefcaseBusiness}
             defaultValue={socialValue(profile.socialLinks, "linkedin")}
             placeholder="LinkedIn username"
-            maxLength={80}
           />
-          <Input
+          <SocialInput
             name="x"
+            label="X / Twitter"
+            prefix="x.com/"
+            icon={AtSign}
             defaultValue={socialValue(profile.socialLinks, "x")}
-            placeholder="X / Twitter username"
-            maxLength={80}
+            placeholder="username"
           />
-          <Input
+          <SocialInput
             name="instagram"
+            label="Instagram"
+            prefix="instagram.com/"
+            icon={Camera}
             defaultValue={socialValue(profile.socialLinks, "instagram")}
-            placeholder="Instagram username"
-            maxLength={80}
+            placeholder="username"
           />
-          <Input
+          <SocialInput
             name="discord"
+            label="Discord"
+            prefix="discord.com/users/"
+            icon={MessageCircle}
             defaultValue={socialValue(profile.socialLinks, "discord")}
-            placeholder="Discord username"
-            maxLength={80}
+            placeholder="username or user ID"
           />
         </div>
       </section>
