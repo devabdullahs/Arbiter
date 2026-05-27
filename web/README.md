@@ -29,6 +29,7 @@ Open http://localhost:3000.
 ## Auth Model
 
 - Dashboard users sign in with Discord, magic links, email OTP, or passkeys.
+- The Security page lets users name, review, rename, and delete passkeys.
 - Discord linking maps Better Auth users to Arbiter `UserProfile` records.
 - Arbiter org permissions continue to come from `OrgMember`.
 - Better Auth Admin is app-level dashboard administration only.

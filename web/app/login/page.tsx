@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { appendAuthNotice, authNoticeFromParams } from "@/lib/auth-errors";
 import { authClient } from "@/lib/auth-client";
 
 const LAST_USED_COOKIE = "better-auth.last_used_login_method";
@@ -38,6 +39,7 @@ function readLastUsedMethod(): string | null {
 function LoginCard() {
   const searchParams = useSearchParams();
   const callbackURL = searchParams.get("callbackURL") || "/";
+  const authNotice = authNoticeFromParams(searchParams);
   const [email, setEmail] = useState("");
   const [lastUsed] = useState<string | null>(() => readLastUsedMethod());
   const [pending, setPending] = useState<
@@ -50,7 +52,14 @@ function LoginCard() {
 
   async function handleDiscord() {
     setPending("discord");
-    await authClient.signIn.social({ provider: "discord", callbackURL });
+    await authClient.signIn.social({
+      provider: "discord",
+      callbackURL,
+      errorCallbackURL: appendAuthNotice(
+        `/login?callbackURL=${encodeURIComponent(callbackURL)}`,
+        "discord-signin-cancelled",
+      ),
+    });
     setPending(null);
   }
 
@@ -96,6 +105,13 @@ function LoginCard() {
           <CardDescription>Access your org&apos;s referee dashboard</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {authNotice ? (
+            <div className="border-border bg-muted/50 rounded-md border px-3 py-2 text-sm">
+              <p className="font-medium">{authNotice.title}</p>
+              <p className="text-muted-foreground">{authNotice.description}</p>
+            </div>
+          ) : null}
+
           <div className="relative">
             <Button
               onClick={handleDiscord}

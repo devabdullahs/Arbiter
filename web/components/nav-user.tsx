@@ -1,8 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { KeyRound, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -37,15 +37,6 @@ export function NavUser({ user }: { user: NavUserData }) {
     router.refresh();
   }
 
-  async function handleAddPasskey() {
-    const res = await authClient.passkey.addPasskey();
-    if (res?.error) {
-      toast.error(res.error.message ?? "Could not register passkey.");
-    } else {
-      toast.success("Passkey registered — use it to sign in next time.");
-    }
-  }
-
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -71,9 +62,11 @@ export function NavUser({ user }: { user: NavUserData }) {
           <DropdownMenuContent side="top" align="start" className="w-56">
             <DropdownMenuLabel className="truncate">{name}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleAddPasskey}>
-              <KeyRound className="mr-2 h-4 w-4" />
-              Register a passkey
+            <DropdownMenuItem asChild>
+              <Link href="/security">
+                <KeyRound className="mr-2 h-4 w-4" />
+                Security settings
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>

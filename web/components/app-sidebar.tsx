@@ -8,6 +8,7 @@ import {
   Image as ImageIcon,
   LayoutDashboard,
   ScrollText,
+  ShieldCheck,
   Swords,
   Trophy,
 } from "lucide-react";
@@ -34,6 +35,7 @@ const nav = [
   { title: "Evidence", href: "/evidence", icon: ImageIcon },
   { title: "Audit Log", href: "/audit", icon: ScrollText },
   { title: "Organization", href: "/org", icon: Building2 },
+  { title: "Security", href: "/security", icon: ShieldCheck },
 ] as const;
 
 export function AppSidebar({ user }: { user: NavUserData }) {

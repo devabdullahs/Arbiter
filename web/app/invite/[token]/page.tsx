@@ -10,16 +10,25 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getLinkedDiscordId, getSession } from "@/lib/auth-session";
+import { authNoticeFromParams } from "@/lib/auth-errors";
 import { prisma } from "@/lib/prisma";
 
 import { AcceptInviteForm } from "./accept-invite-form";
 
 export default async function InvitePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { token } = await params;
+  const resolvedSearchParams = await searchParams;
+  const noticeParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(resolvedSearchParams)) {
+    if (typeof value === "string") noticeParams.set(key, value);
+  }
+  const authNotice = authNoticeFromParams(noticeParams);
   const session = await getSession();
   const invite = await prisma.orgInvite.findUnique({
     where: { token },
@@ -40,6 +49,13 @@ export default async function InvitePage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {authNotice ? (
+            <div className="border-border bg-muted/50 rounded-md border px-3 py-2 text-sm">
+              <p className="font-medium">{authNotice.title}</p>
+              <p className="text-muted-foreground">{authNotice.description}</p>
+            </div>
+          ) : null}
+
           {!invite ? (
             <p className="text-destructive text-sm">This invite does not exist.</p>
           ) : expired || invite.status !== "pending" ? (
