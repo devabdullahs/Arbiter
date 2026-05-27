@@ -37,9 +37,31 @@ function SubmitButton() {
 function moveItem<T>(items: T[], index: number, direction: -1 | 1) {
   const target = index + direction;
   if (target < 0 || target >= items.length) return items;
+  return reorderItem(items, index, target);
+}
+
+function reorderItem<T>(items: T[], from: number, to: number) {
+  if (from === to || from < 0 || to < 0) return items;
+  if (from >= items.length || to >= items.length) return items;
   const next = [...items];
-  [next[index], next[target]] = [next[target], next[index]];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
   return next;
+}
+
+function ordinal(value: number) {
+  const mod100 = value % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${value}th`;
+  switch (value % 10) {
+    case 1:
+      return `${value}st`;
+    case 2:
+      return `${value}nd`;
+    case 3:
+      return `${value}rd`;
+    default:
+      return `${value}th`;
+  }
 }
 
 export function CreateBrLobbyForm({
@@ -56,6 +78,12 @@ export function CreateBrLobbyForm({
   const [extraTeams, setExtraTeams] = useState<string[]>([""]);
   const [placementPoints, setPlacementPoints] = useState<number[]>(
     DEFAULT_PLACEMENT_POINTS,
+  );
+  const [draggingExtraIndex, setDraggingExtraIndex] = useState<number | null>(
+    null,
+  );
+  const [draggingScoreIndex, setDraggingScoreIndex] = useState<number | null>(
+    null,
   );
   const [clientError, setClientError] = useState("");
 
@@ -191,10 +219,10 @@ export function CreateBrLobbyForm({
       <section className="space-y-3 rounded-lg border p-3 lg:col-span-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-medium">Extra teams</h3>
+            <h3 className="text-sm font-medium">Extra team seeds</h3>
             <p className="text-muted-foreground text-xs">
-              Numbered invite teams that are not registered in the organization
-              yet. Arbiter keeps this order as their initial seed.
+              Add invite teams that are not registered yet. Each row is a team
+              name, and Arbiter keeps this order as the initial seed.
             </p>
           </div>
           <Button
@@ -207,17 +235,48 @@ export function CreateBrLobbyForm({
             Add
           </Button>
         </div>
-        <div className="space-y-2">
+        <p className="text-muted-foreground text-xs">
+          Drag the handle or use the arrows to reorder the seed list.
+        </p>
+        <ol className="space-y-2">
           {extraTeams.map((team, index) => {
             const duplicate = duplicateKeys.has(team.trim().toLowerCase());
             return (
-              <div
+              <li
                 key={index}
-                className="grid grid-cols-[auto_2rem_minmax(0,1fr)_auto] items-center gap-2"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (draggingExtraIndex === null) return;
+                  setExtraTeams((items) =>
+                    reorderItem(items, draggingExtraIndex, index),
+                  );
+                  setDraggingExtraIndex(null);
+                }}
+                className={cn(
+                  "grid grid-cols-[auto_4.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-transparent py-1",
+                  draggingExtraIndex === index && "opacity-50",
+                  draggingExtraIndex !== null &&
+                    draggingExtraIndex !== index &&
+                    "border-dashed border-border",
+                )}
               >
-                <GripVertical className="size-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-right text-xs tabular-nums">
-                  {index + 1}.
+                <button
+                  type="button"
+                  draggable
+                  onDragStart={(event) => {
+                    setDraggingExtraIndex(index);
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", String(index));
+                  }}
+                  onDragEnd={() => setDraggingExtraIndex(null)}
+                  className="text-muted-foreground hover:text-foreground cursor-grab rounded p-1 active:cursor-grabbing"
+                  aria-label={`Drag seed ${index + 1} to reorder`}
+                >
+                  <GripVertical className="size-4" />
+                </button>
+                <span className="text-muted-foreground text-xs tabular-nums">
+                  Seed {index + 1}
                 </span>
                 <input
                   value={team}
@@ -228,7 +287,8 @@ export function CreateBrLobbyForm({
                       ),
                     )
                   }
-                  placeholder={`Team ${index + 1}`}
+                  placeholder="Team name"
+                  aria-label={`Seed ${index + 1} team name`}
                   maxLength={80}
                   className={cn(
                     "border-input bg-background h-9 rounded-lg border px-2.5 text-sm",
@@ -278,10 +338,10 @@ export function CreateBrLobbyForm({
                     <Trash2 />
                   </Button>
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ol>
       </section>
 
       <section className="space-y-3 rounded-lg border p-3 lg:col-span-3">
@@ -292,10 +352,10 @@ export function CreateBrLobbyForm({
         />
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-medium">Placement scoring table</h3>
+            <h3 className="text-sm font-medium">Placement point rules</h3>
             <p className="text-muted-foreground text-xs">
-              This defines how many points each finishing place is worth. Team
-              placement is logged later in each game result.
+              Scoring rules only. Teams are assigned to 1st, 2nd, 3rd, and so
+              on later when you log each game result.
             </p>
           </div>
           <Button
@@ -308,21 +368,54 @@ export function CreateBrLobbyForm({
             Add place
           </Button>
         </div>
-        <div className="max-h-72 space-y-2 overflow-auto pr-1">
+        <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          Example: if 1st place is 12 and kills are worth 1 point, a team with
+          1st place and 5 kills receives 17 points for that game.
+        </p>
+        <ol className="max-h-72 space-y-2 overflow-auto pr-1">
           {placementPoints.map((points, index) => (
-            <div
+            <li
               key={index}
-              className="grid grid-cols-[auto_4.5rem_minmax(0,1fr)_auto] items-center gap-2"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (draggingScoreIndex === null) return;
+                setPlacementPoints((items) =>
+                  reorderItem(items, draggingScoreIndex, index),
+                );
+                setDraggingScoreIndex(null);
+              }}
+              className={cn(
+                "grid grid-cols-[auto_8rem_minmax(0,1fr)_3rem_auto] items-center gap-2 rounded-md border border-transparent py-1",
+                draggingScoreIndex === index && "opacity-50",
+                draggingScoreIndex !== null &&
+                  draggingScoreIndex !== index &&
+                  "border-dashed border-border",
+              )}
             >
-              <GripVertical className="size-4 text-muted-foreground" />
+              <button
+                type="button"
+                draggable
+                onDragStart={(event) => {
+                  setDraggingScoreIndex(index);
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", String(index));
+                }}
+                onDragEnd={() => setDraggingScoreIndex(null)}
+                className="text-muted-foreground hover:text-foreground cursor-grab rounded p-1 active:cursor-grabbing"
+                aria-label={`Drag ${ordinal(index + 1)} place point rule to reorder`}
+              >
+                <GripVertical className="size-4" />
+              </button>
               <span className="text-muted-foreground text-xs tabular-nums">
-                Place {index + 1}
+                {ordinal(index + 1)} place
               </span>
               <input
                 type="number"
                 min={0}
                 max={999}
                 value={points}
+                aria-label={`Points for ${ordinal(index + 1)} place`}
                 onChange={(event) =>
                   setPlacementPoints((items) =>
                     items.map((entry, entryIndex) =>
@@ -334,6 +427,7 @@ export function CreateBrLobbyForm({
                 }
                 className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
               />
+              <span className="text-muted-foreground text-xs">pts</span>
               <div className="flex gap-1">
                 <Button
                   type="button"
@@ -374,9 +468,9 @@ export function CreateBrLobbyForm({
                   <Trash2 />
                 </Button>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ol>
       </section>
       <SubmitButton />
     </form>
