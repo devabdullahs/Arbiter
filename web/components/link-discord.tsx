@@ -14,6 +14,7 @@ export function LinkDiscordButton({ callbackURL = "/" }: { callbackURL?: string 
     await authClient.linkSocial({
       provider: "discord",
       callbackURL,
+      scopes: ["identify", "email", "guilds"],
       errorCallbackURL: appendAuthNotice(callbackURL, "discord-link-cancelled"),
     });
     setPending(false);

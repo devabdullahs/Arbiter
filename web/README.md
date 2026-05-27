@@ -30,9 +30,14 @@ Open http://localhost:3000.
 
 - Dashboard users sign in with Discord, magic links, email OTP, or passkeys.
 - The Security page lets users name, review, rename, and delete passkeys.
+- The Settings page stores referee profile details: display name, country,
+  game experience, and field roles.
 - The sidebar organization switcher scopes dashboard pages to the selected org.
 - Users can link or disconnect Discord from Security, and create a new org from
   the Organization page after Discord is linked.
+- Discord-linked users can select a server from their Discord account when
+  creating an org. A manual server ID field remains as a fallback, and the UI
+  provides a preselected Add Bot link when the selected server is not configured.
 - Discord linking maps Better Auth users to Arbiter `UserProfile` records.
 - Arbiter org permissions continue to come from `OrgMember`.
 - Better Auth Admin is app-level dashboard administration only.

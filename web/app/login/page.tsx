@@ -57,6 +57,7 @@ function LoginCard() {
     await authClient.signIn.social({
       provider: "discord",
       callbackURL,
+      scopes: ["identify", "email", "guilds"],
       errorCallbackURL: appendAuthNotice(
         `/login?callbackURL=${encodeURIComponent(callbackURL)}`,
         "discord-signin-cancelled",

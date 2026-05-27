@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { KeyRound, LogOut } from "lucide-react";
+import { KeyRound, LogOut, Settings } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -62,6 +62,12 @@ export function NavUser({ user }: { user: NavUserData }) {
           <DropdownMenuContent side="top" align="start" className="w-56">
             <DropdownMenuLabel className="truncate">{name}</DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/settings">
+                <Settings className="mr-2 h-4 w-4" />
+                Profile settings
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/security">
                 <KeyRound className="mr-2 h-4 w-4" />

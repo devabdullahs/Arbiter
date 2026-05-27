@@ -8,6 +8,7 @@ import {
   Image as ImageIcon,
   LayoutDashboard,
   ScrollText,
+  Settings,
   ShieldCheck,
   Swords,
   Trophy,
@@ -37,6 +38,7 @@ const nav = [
   { title: "Evidence", href: "/evidence", icon: ImageIcon },
   { title: "Audit Log", href: "/audit", icon: ScrollText },
   { title: "Organization", href: "/org", icon: Building2 },
+  { title: "Settings", href: "/settings", icon: Settings },
   { title: "Security", href: "/security", icon: ShieldCheck },
 ] as const;
 

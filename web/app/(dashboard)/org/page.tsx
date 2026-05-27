@@ -17,10 +17,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getAccessContext } from "@/lib/auth-session";
+import { botInviteUrl, listDiscordGuildOptions } from "@/lib/discord";
 import { OrgMemberRole } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/prisma";
 
-import { createOrganization, createOrgInvite, revokeOrgInvite } from "./actions";
+import { createOrgInvite, revokeOrgInvite } from "./actions";
+import { CreateOrganizationCard } from "./create-organization-card";
 
 const ROLE_ORDER: Record<string, number> = {
   OWNER: 0,
@@ -32,13 +34,23 @@ const ROLE_ORDER: Record<string, number> = {
 export default async function OrgPage() {
   const ctx = await getAccessContext();
   if (!ctx) return null;
+  const discordGuildOptions = ctx.discordId
+    ? await listDiscordGuildOptions(ctx.session.user.id)
+    : { guilds: [], needsReconnect: false };
+  const genericInviteUrl = botInviteUrl();
 
   if (ctx.orgIds.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader title="Organization" />
         <NoOrgAccess discordId={ctx.discordId} />
-        {ctx.discordId ? <CreateOrganizationCard /> : null}
+        {ctx.discordId ? (
+          <CreateOrganizationCard
+            guilds={discordGuildOptions.guilds}
+            needsReconnect={discordGuildOptions.needsReconnect}
+            genericInviteUrl={genericInviteUrl}
+          />
+        ) : null}
       </div>
     );
   }
@@ -70,7 +82,11 @@ export default async function OrgPage() {
         description="Settings and membership for the selected organization."
       />
 
-      <CreateOrganizationCard />
+      <CreateOrganizationCard
+        guilds={discordGuildOptions.guilds}
+        needsReconnect={discordGuildOptions.needsReconnect}
+        genericInviteUrl={genericInviteUrl}
+      />
 
       {orgs.map((org) => {
         const s = org.settings;
@@ -266,54 +282,5 @@ export default async function OrgPage() {
         );
       })}
     </div>
-  );
-}
-
-function CreateOrganizationCard() {
-  return (
-    <Card id="create-org">
-      <CardHeader>
-        <CardTitle className="text-base">Create organization</CardTitle>
-        <CardDescription>
-          Create a dashboard organization for a Discord server. Add the bot and
-          run `/org setup` in that server when you are ready to sync roles and
-          channels.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form action={createOrganization} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-          <div>
-            <label htmlFor="create-org-name" className="text-sm font-medium">
-              Organization name
-            </label>
-            <input
-              id="create-org-name"
-              name="name"
-              required
-              placeholder="Saudi Esports League"
-              className="border-input bg-background mt-1 h-9 w-full rounded-lg border px-2.5 text-sm"
-            />
-          </div>
-          <div>
-            <label htmlFor="create-org-guild" className="text-sm font-medium">
-              Discord server ID
-            </label>
-            <input
-              id="create-org-guild"
-              name="discordGuildId"
-              required
-              inputMode="numeric"
-              placeholder="1393726755046559824"
-              className="border-input bg-background mt-1 h-9 w-full rounded-lg border px-2.5 text-sm"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button type="submit" className="w-full md:w-auto">
-              Create
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
   );
 }

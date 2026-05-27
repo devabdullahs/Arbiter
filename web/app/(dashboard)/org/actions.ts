@@ -40,6 +40,10 @@ function normalizeSnowflake(value: FormDataEntryValue | null) {
   return String(value ?? "").replace(/\D/g, "");
 }
 
+function normalizeName(value: FormDataEntryValue | null) {
+  return String(value ?? "").trim();
+}
+
 async function requireInvitePermission(orgId: string) {
   const ctx = await getAccessContext();
   if (!ctx) throw new Error("You must be signed in.");
@@ -126,7 +130,7 @@ export async function createOrganization(formData: FormData) {
     throw new Error("Link Discord before creating an organization.");
   }
 
-  const name = String(formData.get("name") ?? "").trim();
+  const name = normalizeName(formData.get("name")) || normalizeName(formData.get("manualName"));
   const discordGuildId = normalizeSnowflake(formData.get("discordGuildId"));
 
   if (!name) throw new Error("Organization name is required.");

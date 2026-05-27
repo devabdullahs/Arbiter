@@ -44,13 +44,13 @@ model User {
 }
 
 model Session {
-  id        String   @id
-  expiresAt DateTime
-  token     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  ipAddress String?
-  userAgent String?
+  id             String   @id
+  expiresAt      DateTime
+  token          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   impersonatedBy String?
@@ -218,20 +218,20 @@ model BrLobby {
 }
 
 model BrTeam {
-  id             String         @id @default(cuid())
-  lobbyId        String
-  name           String
-  seed           Int?
-  discordRoleId  String?
+  id                String         @id @default(cuid())
+  lobbyId           String
+  name              String
+  seed              Int?
+  discordRoleId     String?
   categoryChannelId String?
-  textChannelId  String?
-  voiceChannelId String?
-  teamMessageId  String?
-  lobby          BrLobby        @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
-  results        BrGameResult[]
-  adjustments    BrAdjustment[]
-  logs           BrLog[]
-  createdAt      DateTime       @default(now())
+  textChannelId     String?
+  voiceChannelId    String?
+  teamMessageId     String?
+  lobby             BrLobby        @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  results           BrGameResult[]
+  adjustments       BrAdjustment[]
+  logs              BrLog[]
+  createdAt         DateTime       @default(now())
 
   @@unique([lobbyId, name])
   @@index([lobbyId])
@@ -322,21 +322,24 @@ model OrgMember {
 }
 
 model UserProfile {
-  id             String          @id @default(cuid())
-  discordUserId  String          @unique
-  displayName    String?
-  linkedAccounts LinkedAccount[]
-  memberships    OrgMember[]
-  teamMembers    TeamMember[]
-  checkins       Checkin[]
-  pauseLogs      PauseLog[]
-  warningsIssued Warning[]       @relation("WarningIssuer")
-  evidence       Evidence[]
-  shifts         RefereeShift[]
-  auditLogs      AuditLog[]
-  standaloneLogs StandaloneLog[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id              String          @id @default(cuid())
+  discordUserId   String          @unique
+  displayName     String?
+  countryCode     String?
+  gameExperiences String[]        @default([])
+  fieldRoles      String[]        @default([])
+  linkedAccounts  LinkedAccount[]
+  memberships     OrgMember[]
+  teamMembers     TeamMember[]
+  checkins        Checkin[]
+  pauseLogs       PauseLog[]
+  warningsIssued  Warning[]       @relation("WarningIssuer")
+  evidence        Evidence[]
+  shifts          RefereeShift[]
+  auditLogs       AuditLog[]
+  standaloneLogs  StandaloneLog[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 }
 
 // Matchless logs captured by referees via the user-installed /log command, e.g. for

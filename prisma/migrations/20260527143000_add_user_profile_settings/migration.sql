@@ -1,0 +1,4 @@
+ALTER TABLE "UserProfile"
+ADD COLUMN "countryCode" TEXT,
+ADD COLUMN "gameExperiences" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN "fieldRoles" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
