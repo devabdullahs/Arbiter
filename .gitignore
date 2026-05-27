@@ -13,3 +13,19 @@ graphify-out/
 .codex/
 CLAUDE.md
 AGENTS.md
+
+# Web dashboard build + generated artifacts. Also ignored in web/.gitignore,
+# but graphify reads only the root ignore file when scanning from here, so the
+# generated Prisma client / Next build output must be listed here too — keeps
+# ~6k machine-generated nodes out of the knowledge graph.
+web/.next/
+web/out/
+web/build/
+web/lib/generated/
+
+# Deploy bundle: never commit local secrets, runtime data, or the large image
+# tarballs (GHCR images replace them). Keep the example env template tracked.
+deploy/ugreenas/.env.docker
+deploy/ugreenas/data/
+deploy/ugreenas/images/
+!deploy/ugreenas/.env.docker.example

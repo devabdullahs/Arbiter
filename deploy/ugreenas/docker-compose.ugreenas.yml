@@ -1,0 +1,93 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: arbiter-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: arbiter
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: arbiter
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - internal_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arbiter -d arbiter"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Images are built and pushed to GHCR by .github/workflows/deploy-images.yml.
+  # The NAS pulls them. To use locally-loaded tarball images instead, set
+  # ARBITER_BOT_IMAGE / ARBITER_WEB_IMAGE to arbiter-bot:local / arbiter-web:local.
+
+  migrate:
+    image: ${ARBITER_BOT_IMAGE:-ghcr.io/devabdullahs/arbiter-bot:latest}
+    container_name: arbiter-migrate
+    restart: "no"
+    env_file:
+      - path: ./.env.docker
+        required: false
+    environment:
+      DATABASE_URL: postgresql://arbiter:${POSTGRES_PASSWORD:-change-me}@postgres:5432/arbiter?schema=public
+    command: ["npm", "run", "db:deploy"]
+    networks:
+      - internal_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  arbiter-bot:
+    image: ${ARBITER_BOT_IMAGE:-ghcr.io/devabdullahs/arbiter-bot:latest}
+    container_name: arbiter-bot
+    restart: unless-stopped
+    env_file:
+      - path: ./.env.docker
+        required: false
+    environment:
+      DATABASE_URL: postgresql://arbiter:${POSTGRES_PASSWORD:-change-me}@postgres:5432/arbiter?schema=public
+      DEPLOY_DISCORD_COMMANDS: ${DEPLOY_DISCORD_COMMANDS:-true}
+      DISCORD_SYNC_INTERVAL_MS: ${DISCORD_SYNC_INTERVAL_MS:-5000}
+    networks:
+      - internal_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  arbiter-web:
+    image: ${ARBITER_WEB_IMAGE:-ghcr.io/devabdullahs/arbiter-web:latest}
+    container_name: arbiter-web
+    restart: unless-stopped
+    env_file:
+      - path: ./.env.docker
+        required: false
+    environment:
+      DATABASE_URL: postgresql://arbiter:${POSTGRES_PASSWORD:-change-me}@postgres:5432/arbiter?schema=public
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-change-me}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Arbiter <noreply@example.com>}
+    volumes:
+      - ./data/uploads:/app/web/public/uploads
+    ports:
+      - "${ARBITER_WEB_PORT:-3000}:3000"
+    networks:
+      internal_net:
+      macvlan_net:
+        ipv4_address: ${ARBITER_WEB_IPV4:-10.69.2.52}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+networks:
+  internal_net:
+    driver: bridge
+  macvlan_net:
+    name: ${MACVLAN_NETWORK:-macvlan}
+    external: true
