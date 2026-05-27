@@ -15,6 +15,7 @@ import { OrgMemberRole } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/prisma";
 
 import { FIELD_ROLE_OPTIONS, GAME_OPTIONS } from "../settings/options";
+import { removeOrgMember, updateOrgMemberRole } from "./actions";
 
 function roleRank(role: OrgMemberRole) {
   return {
@@ -56,6 +57,8 @@ export default async function WorkersPage({
   const canDiscover =
     ctx.activeOrg.role === OrgMemberRole.OWNER ||
     ctx.activeOrg.role === OrgMemberRole.ADMIN;
+  const canManageMembers = canDiscover;
+  const canPromoteOwner = ctx.activeOrg.role === OrgMemberRole.OWNER;
 
   const [orgMembers, discoveredWorkers, savedWorkers] = await Promise.all([
     prisma.orgMember.findMany({
@@ -163,6 +166,47 @@ export default async function WorkersPage({
                     Open profile
                   </Link>
                 </Button>
+                {canManageMembers ? (
+                  <div className="space-y-2 rounded-lg border p-3">
+                    <form
+                      action={updateOrgMemberRole}
+                      className="grid gap-2 sm:grid-cols-[1fr_auto]"
+                    >
+                      <input type="hidden" name="memberId" value={member.id} />
+                      <select
+                        name="role"
+                        defaultValue={member.role}
+                        className="border-input bg-background h-8 rounded-lg border px-2.5 text-sm"
+                        disabled={member.userProfileId === viewer?.id}
+                      >
+                        {canPromoteOwner ? (
+                          <option value={OrgMemberRole.OWNER}>Owner</option>
+                        ) : null}
+                        <option value={OrgMemberRole.ADMIN}>Admin</option>
+                        <option value={OrgMemberRole.REFEREE}>Referee</option>
+                        <option value={OrgMemberRole.PLAYER}>Player</option>
+                      </select>
+                      <Button
+                        type="submit"
+                        variant="outline"
+                        disabled={member.userProfileId === viewer?.id}
+                      >
+                        Change role
+                      </Button>
+                    </form>
+                    <form action={removeOrgMember}>
+                      <input type="hidden" name="memberId" value={member.id} />
+                      <Button
+                        type="submit"
+                        variant="destructive"
+                        className="w-full"
+                        disabled={member.userProfileId === viewer?.id}
+                      >
+                        Remove from org
+                      </Button>
+                    </form>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           ))}

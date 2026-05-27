@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ClipboardList, Image, Swords, Trophy } from "lucide-react";
 
 import { NoOrgAccess, PageHeader } from "@/components/dashboard-ui";
@@ -19,6 +20,10 @@ export default async function DashboardHome() {
   if (!ctx) return null;
 
   if (ctx.orgIds.length === 0) {
+    if (ctx.activeOrg?.role === "PLAYER") {
+      redirect("/player");
+    }
+
     return (
       <div className="space-y-6">
         <PageHeader

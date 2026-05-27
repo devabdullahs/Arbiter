@@ -7,6 +7,7 @@ import {
   Gavel,
   Image as ImageIcon,
   LayoutDashboard,
+  Shield,
   Search,
   ScrollText,
   Settings,
@@ -32,7 +33,7 @@ import { NavUser, type NavUserData } from "@/components/nav-user";
 import { OrgSwitcher } from "@/components/org-switcher";
 import type { AccessibleOrg } from "@/lib/auth-session";
 
-const operationsNav = [
+const staffNav = [
   { title: "Overview", href: "/", icon: LayoutDashboard },
   { title: "Matches", href: "/matches", icon: Swords },
   { title: "BR Lobbies", href: "/br", icon: Trophy },
@@ -42,6 +43,8 @@ const operationsNav = [
   { title: "Evidence", href: "/evidence", icon: ImageIcon },
   { title: "Audit Log", href: "/audit", icon: ScrollText },
 ] as const;
+
+const playerNav = [{ title: "Player Workspace", href: "/player", icon: Users }] as const;
 
 const organizationNav = [
   { title: "Organization", href: "/org", icon: Building2 },
@@ -62,6 +65,12 @@ export function AppSidebar({
   activeOrgId: string | null;
 }) {
   const pathname = usePathname();
+  const activeOrg =
+    orgs.find((org) => org.id === activeOrgId) ?? orgs[0] ?? null;
+  const staffView =
+    activeOrg?.role === "OWNER" ||
+    activeOrg?.role === "ADMIN" ||
+    activeOrg?.role === "REFEREE";
 
   return (
     <Sidebar>
@@ -69,29 +78,53 @@ export function AppSidebar({
         <OrgSwitcher orgs={orgs} activeOrgId={activeOrgId} />
       </SidebarHeader>
       <SidebarContent>
+        {staffView ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>
+              <Shield className="mr-1 size-3" />
+              Ref/Admin View
+            </SidebarGroupLabel>
+            <SidebarMenu>
+              {staffNav.map((item) => {
+                const active =
+                  item.href === "/"
+                    ? pathname === "/"
+                    : pathname.startsWith(item.href);
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={item.title}
+                    >
+                      <Link href={item.href}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        ) : null}
         <SidebarGroup>
-          <SidebarGroupLabel>Operations</SidebarGroupLabel>
+          <SidebarGroupLabel>Player View</SidebarGroupLabel>
           <SidebarMenu>
-            {operationsNav.map((item) => {
-              const active =
-                item.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(item.href);
-              return (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={active}
-                    tooltip={item.title}
-                  >
-                    <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              );
-            })}
+            {playerNav.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname.startsWith(item.href)}
+                  tooltip={item.title}
+                >
+                  <Link href={item.href}>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
           </SidebarMenu>
         </SidebarGroup>
         <SidebarGroup>

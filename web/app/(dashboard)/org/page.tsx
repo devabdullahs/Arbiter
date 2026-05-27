@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { NoOrgAccess, PageHeader } from "@/components/dashboard-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +46,40 @@ export default async function OrgPage() {
   const genericInviteUrl = botInviteUrl();
 
   if (ctx.orgIds.length === 0) {
+    if (ctx.activeOrg) {
+      return (
+        <div className="space-y-6">
+          <PageHeader
+            title="Organization"
+            description="Your player-facing organization view."
+          />
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base">{ctx.activeOrg.name}</CardTitle>
+                <Badge variant="secondary">
+                  {ctx.activeOrg.role.toLowerCase()}
+                </Badge>
+              </div>
+              <CardDescription>
+                Guild {ctx.activeOrg.discordGuildId}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-muted-foreground text-sm">
+                This account is connected as a player. Use the player workspace
+                for teams, match visibility, and check-ins. Ref/admin settings
+                appear here when your role is upgraded.
+              </p>
+              <Button asChild variant="outline">
+                <Link href="/player">Open player workspace</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
         <PageHeader title="Organization" />
