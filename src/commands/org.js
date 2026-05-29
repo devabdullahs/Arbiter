@@ -1,5 +1,5 @@
 import { ChannelType, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
-import { isOrgAdmin, listOrgMembers, resolveOrganizationByGuild, setOrgMemberRole, setupOrganization } from '../services/org-service.js';
+import { getOrgMemberRole, isOrgAdmin, listOrgMembers, resolveOrganizationByGuild, setOrgMemberRole, setupOrganization } from '../services/org-service.js';
 import { guildOnly } from './install-contexts.js';
 
 export const orgCommand = {
@@ -58,6 +58,8 @@ export const orgCommand = {
               .addChoices(
                 { name: 'Owner', value: 'OWNER' },
                 { name: 'Admin', value: 'ADMIN' },
+                { name: 'Manager', value: 'MANAGER' },
+                { name: 'Head Referee', value: 'HEAD_REF' },
                 { name: 'Referee', value: 'REFEREE' },
                 { name: 'Player', value: 'PLAYER' },
               ),
@@ -94,6 +96,21 @@ export const orgCommand = {
 
       const user = interaction.options.getUser('user', true);
       const role = interaction.options.getString('role', true);
+
+      // Least privilege: granting OWNER/ADMIN can escalate above the actor's own
+      // level, so restrict it to org owners or Discord server admins. Managers
+      // and admin-role holders can still manage HEAD_REF/REFEREE/PLAYER staff.
+      if (role === 'OWNER' || role === 'ADMIN') {
+        const actorRole = await getOrgMemberRole(existing.id, interaction.user.id);
+        if (!canManageServer && actorRole !== 'OWNER') {
+          await interaction.reply({
+            content: 'Only an organization owner or Discord server admin can grant the Owner or Admin role.',
+            ephemeral: true,
+          });
+          return;
+        }
+      }
+
       const member = await setOrgMemberRole(existing.id, user, role);
       await interaction.reply({
         content:

@@ -15,7 +15,7 @@ import {
 
 import { PublicFooter, PublicHeader } from "@/components/public-shell";
 import { Button } from "@/components/ui/button";
-import { siteDescription, siteKeywords, siteName } from "@/lib/site";
+import { siteDescription, siteKeywords, siteName, siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Discord esports referee bot",
@@ -83,8 +83,65 @@ const replacedItems = [
 ];
 
 export default function LandingPage() {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${siteUrl}/#website`,
+        name: siteName,
+        url: siteUrl,
+        description: siteDescription,
+        inLanguage: "en",
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": `${siteUrl}/#software`,
+        name: siteName,
+        applicationCategory: "BusinessApplication",
+        operatingSystem: "Web, Discord",
+        url: siteUrl,
+        codeRepository: "https://github.com/devabdullahs/Arbiter",
+        description: siteDescription,
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD",
+          availability: "https://schema.org/InStock",
+        },
+        featureList: [
+          "Discord match control panels",
+          "Battle royale lobby scoring",
+          "Player check-ins",
+          "Evidence vault",
+          "Referee audit logs",
+          "Self-hosted Docker deployment",
+        ],
+        author: {
+          "@type": "Person",
+          name: "Abdullah",
+          url: "https://github.com/devabdullahs",
+        },
+      },
+      {
+        "@type": "Organization",
+        "@id": `${siteUrl}/#organization`,
+        name: siteName,
+        url: siteUrl,
+        logo: `${siteUrl}/icon.png`,
+        sameAs: ["https://github.com/devabdullahs/Arbiter"],
+      },
+    ],
+  };
+
   return (
     <main className="bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+        }}
+      />
       <PublicHeader />
 
       <section className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:py-24">

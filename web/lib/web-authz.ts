@@ -5,12 +5,22 @@ import { getLinkedDiscordId, getSession } from "./auth-session";
 export const MANAGER_ROLES = new Set<OrgMemberRole>([
   OrgMemberRole.OWNER,
   OrgMemberRole.ADMIN,
+  OrgMemberRole.MANAGER,
+  OrgMemberRole.HEAD_REF,
   OrgMemberRole.REFEREE,
 ]);
 
 export const OWNER_ADMIN_ROLES = new Set<OrgMemberRole>([
   OrgMemberRole.OWNER,
   OrgMemberRole.ADMIN,
+  OrgMemberRole.MANAGER,
+]);
+
+export const REFEREE_ASSIGNMENT_MANAGER_ROLES = new Set<OrgMemberRole>([
+  OrgMemberRole.OWNER,
+  OrgMemberRole.ADMIN,
+  OrgMemberRole.MANAGER,
+  OrgMemberRole.HEAD_REF,
 ]);
 
 export async function requireUserProfile() {

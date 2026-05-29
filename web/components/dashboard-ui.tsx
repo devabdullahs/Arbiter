@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 export function PageHeader({
@@ -28,15 +29,54 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
+        <h1 className="truncate text-2xl font-semibold tracking-tight md:text-3xl">
+          {title}
+        </h1>
         {description ? (
-          <p className="text-muted-foreground text-sm">{description}</p>
+          <p className="text-muted-foreground mt-1 max-w-3xl text-sm leading-6">
+            {description}
+          </p>
         ) : null}
       </div>
-      {actions ? <div className="shrink-0">{actions}</div> : null}
+      {actions ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {actions}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  action,
+  className,
+}: {
+  icon?: LucideIcon;
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Card className={className}>
+      <CardContent className="flex min-h-48 flex-col items-center justify-center gap-2 py-10 text-center">
+        {Icon ? (
+          <span className="bg-muted text-muted-foreground flex size-11 items-center justify-center rounded-full">
+            <Icon />
+          </span>
+        ) : null}
+        <p className="text-sm font-medium">{title}</p>
+        {description ? (
+          <p className="text-muted-foreground max-w-sm text-sm">{description}</p>
+        ) : null}
+        {action ? <div className="mt-1">{action}</div> : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -91,8 +131,8 @@ export function SimpleTable({
 }) {
   return (
     <Card>
-      <CardContent className="p-0">
-        <Table>
+      <CardContent className="overflow-x-auto p-0">
+        <Table className="min-w-[42rem]">
           <TableHeader>
             <TableRow>
               {head.map((h) => (

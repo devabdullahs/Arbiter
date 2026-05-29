@@ -139,7 +139,7 @@ export async function setOrgMemberRole(organizationId, user, role) {
 
 export async function listOrgMembers(organizationId) {
   return prisma.orgMember.findMany({
-    where: { organizationId, role: { in: ['OWNER', 'ADMIN', 'REFEREE'] } },
+    where: { organizationId, role: { in: ['OWNER', 'ADMIN', 'MANAGER', 'HEAD_REF', 'REFEREE'] } },
     include: { userProfile: true },
     orderBy: [{ role: 'asc' }, { updatedAt: 'desc' }],
     take: 50,
@@ -148,7 +148,7 @@ export async function listOrgMembers(organizationId) {
 
 export async function hasOrgRefereeOrAdminAccess(organizationId, discordUserId) {
   const role = await getOrgMemberRole(organizationId, discordUserId);
-  return role === 'OWNER' || role === 'ADMIN' || role === 'REFEREE';
+  return role === 'OWNER' || role === 'ADMIN' || role === 'MANAGER' || role === 'HEAD_REF' || role === 'REFEREE';
 }
 
 export async function listRefereeOrganizationsForUser(discordUserId) {
@@ -156,7 +156,7 @@ export async function listRefereeOrganizationsForUser(discordUserId) {
     where: { discordUserId },
     include: {
       memberships: {
-        where: { role: { in: ['OWNER', 'ADMIN', 'REFEREE'] } },
+        where: { role: { in: ['OWNER', 'ADMIN', 'MANAGER', 'HEAD_REF', 'REFEREE'] } },
         include: { organization: { include: { settings: true } } },
       },
     },
@@ -182,7 +182,7 @@ export async function isOrgAdmin(interaction, organization) {
   }
 
   const role = await getOrgMemberRole(organization.id, interaction.user.id);
-  return role === 'OWNER' || role === 'ADMIN';
+  return role === 'OWNER' || role === 'ADMIN' || role === 'MANAGER';
 }
 
 export async function isOrgRefereeOrAdmin(interaction, organization) {
@@ -202,7 +202,7 @@ export async function isOrgRefereeOrAdmin(interaction, organization) {
   }
 
   const role = await getOrgMemberRole(organization.id, interaction.user.id);
-  return role === 'REFEREE';
+  return role === 'REFEREE' || role === 'HEAD_REF';
 }
 
 export async function writeAuditLog(input) {

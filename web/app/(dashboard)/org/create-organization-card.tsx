@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ExternalLink } from "lucide-react";
 
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -158,7 +159,9 @@ export function CreateOrganizationCard({
             </div>
           ) : null}
 
-          <Button type="submit">Create organization</Button>
+          <PendingSubmitButton pendingChildren="Creating organization...">
+            Create organization
+          </PendingSubmitButton>
         </form>
       </CardContent>
     </Card>

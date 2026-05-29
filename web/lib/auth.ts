@@ -6,15 +6,46 @@ import { admin, emailOTP, lastLoginMethod, magicLink } from "better-auth/plugins
 
 import { sendAuthEmail } from "./email";
 import { prisma } from "./prisma";
+import { siteUrl } from "./site";
 
 // Relying-party identity for WebAuthn passkeys, derived from the app URL.
 // rpID is the hostname (no scheme/port); origin is the full origin.
-const authUrl = new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000");
+//
+// If BETTER_AUTH_URL is unset we must NOT fall back to localhost in production:
+// a passkey's rpID has to match the page's domain, so an rpID of "localhost"
+// makes iOS Safari (and any browser on the real domain) reject the ceremony.
+// Fall back to the canonical public site URL in production instead, and only
+// use localhost for local development.
+const fallbackAuthUrl =
+  process.env.NODE_ENV === "production" ? siteUrl : "http://localhost:3000";
+const authUrl = new URL(process.env.BETTER_AUTH_URL ?? fallbackAuthUrl);
+
+// Restrict which origins Better Auth honors for callbacks/CORS so a spoofed
+// Host header can't redirect to or leak auth state at another origin.
+const trustedOrigins = Array.from(
+  new Set([authUrl.origin, siteUrl].filter(Boolean)),
+);
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
+  trustedOrigins,
+  // Throttle auth endpoints to curb brute-force and email-bombing. Global
+  // default is 100 req/min/IP; the email-sending and code-verifying routes get
+  // stricter limits. In-memory storage is fine for the single-instance Docker
+  // deploy — switch `storage` to "database"/"secondary-storage" if you scale
+  // to multiple instances.
+  rateLimit: {
+    enabled: process.env.NODE_ENV === "production",
+    window: 60,
+    max: 100,
+    customRules: {
+      "/sign-in/magic-link": { window: 60, max: 5 },
+      "/email-otp/send-verification-otp": { window: 60, max: 5 },
+      "/sign-in/email-otp": { window: 60, max: 10 },
+    },
+  },
   // Passwordless only: no email/password. Email login is magic link + OTP.
   socialProviders: {
     discord: {

@@ -19,15 +19,23 @@ ENV BETTER_AUTH_SECRET=build-only-secret-do-not-use-in-production-1234567890
 ENV BETTER_AUTH_URL=http://localhost:3000
 ENV DISCORD_CLIENT_ID=build-only
 ENV DISCORD_CLIENT_SECRET=build-only
+ARG NEXT_PUBLIC_GA_ID=
+ARG NEXT_PUBLIC_SITE_URL=https://arbiter.moonbot.info
+ENV NEXT_PUBLIC_GA_ID=$NEXT_PUBLIC_GA_ID
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 RUN npm run build
 RUN npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runtime
 
 WORKDIR /app/web
+ARG NEXT_PUBLIC_GA_ID=
+ARG NEXT_PUBLIC_SITE_URL=https://arbiter.moonbot.info
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
+ENV NEXT_PUBLIC_GA_ID=$NEXT_PUBLIC_GA_ID
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates openssl \
   && rm -rf /var/lib/apt/lists/*

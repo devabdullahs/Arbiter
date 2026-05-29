@@ -28,6 +28,8 @@ export function isStaffRole(role: OrgMemberRole) {
   return (
     role === OrgMemberRole.OWNER ||
     role === OrgMemberRole.ADMIN ||
+    role === OrgMemberRole.MANAGER ||
+    role === OrgMemberRole.HEAD_REF ||
     role === OrgMemberRole.REFEREE
   );
 }

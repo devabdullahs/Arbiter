@@ -9,9 +9,33 @@ import { toast } from "sonner";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { friendlyPasskeyError } from "@/lib/auth-errors";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+
+// Surface the underlying WebAuthn/Better Auth error verbatim (name + message +
+// status) instead of a generic label — iOS Safari failures are otherwise
+// impossible to diagnose without a Mac + Web Inspector. Still friendly for the
+// common "user cancelled" case.
+function describePasskeyError(error: unknown): string {
+  if (error && typeof error === "object") {
+    const e = error as {
+      name?: unknown;
+      message?: unknown;
+      status?: unknown;
+      code?: unknown;
+      statusText?: unknown;
+    };
+    const name = String(e.name ?? "");
+    const message = String(e.message ?? e.statusText ?? "");
+    const lower = `${name} ${message}`.toLowerCase();
+    if (["cancel", "not allowed", "aborted", "timed out"].some((k) => lower.includes(k))) {
+      return "Passkey prompt was cancelled or timed out. No passkey was added.";
+    }
+    const code = e.code ? ` [${String(e.code)}]` : e.status ? ` [${String(e.status)}]` : "";
+    return `${[name, message].filter(Boolean).join(": ") || "Passkey error"}${code}`;
+  }
+  return String(error ?? "Could not complete the passkey action.");
+}
 
 import { deletePasskey, renamePasskey } from "./actions";
 
@@ -71,7 +95,8 @@ export function PasskeyManager({ passkeys }: { passkeys: PasskeyRow[] }) {
     try {
       const res = await authClient.passkey.addPasskey({ name });
       if (res?.error) {
-        toast.error(friendlyPasskeyError(res.error.message));
+        console.error("[passkey] register returned error", res.error);
+        toast.error(describePasskeyError(res.error));
         return;
       }
       toast.success("Passkey registered. You can use it to sign in next time.");
@@ -79,9 +104,8 @@ export function PasskeyManager({ passkeys }: { passkeys: PasskeyRow[] }) {
       setDialogOpen(false);
       router.refresh();
     } catch (error) {
-      toast.error(
-        friendlyPasskeyError(error instanceof Error ? error.message : ""),
-      );
+      console.error("[passkey] register threw", error);
+      toast.error(describePasskeyError(error));
     } finally {
       setPending(false);
     }
@@ -166,7 +190,7 @@ export function PasskeyManager({ passkeys }: { passkeys: PasskeyRow[] }) {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={pending}>
-                  Save And Register
+                  {pending ? "Registering..." : "Save And Register"}
                 </Button>
               </div>
             </form>
@@ -207,7 +231,7 @@ export function PasskeyManager({ passkeys }: { passkeys: PasskeyRow[] }) {
                   />
                   <Button type="submit" variant="outline" disabled={isMutating}>
                     <RotateCcw className="mr-2 h-4 w-4" />
-                    Rename
+                    {isMutating ? "Renaming..." : "Rename"}
                   </Button>
                 </form>
 

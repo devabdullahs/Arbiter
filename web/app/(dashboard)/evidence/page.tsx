@@ -1,19 +1,21 @@
 import Link from "next/link";
 
 import { NoOrgAccess, PageHeader, SimpleTable } from "@/components/dashboard-ui";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { getAccessContext } from "@/lib/auth-session";
+import { formatDateTime } from "@/lib/format-date";
 import { prisma } from "@/lib/prisma";
 
 const STATUSES = ["submitted", "reviewed", "approved", "rejected"];
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
 function fmt(date: Date) {
-  return date.toISOString().slice(0, 16).replace("T", " ");
+  return formatDateTime(date);
 }
 
 function cleanQuery(value: string | undefined) {
@@ -162,7 +164,9 @@ export default async function EvidencePage({
                 </option>
               ))}
             </NativeSelect>
-            <Button type="submit">Search</Button>
+            <PendingSubmitButton pendingChildren="Searching...">
+              Search
+            </PendingSubmitButton>
           </form>
         </CardContent>
       </Card>
@@ -182,7 +186,7 @@ export default async function EvidencePage({
                   <div className="min-w-0">
                     <Link
                       href={`/matches/${e.match.publicCode}`}
-                      className="font-mono text-sm font-medium hover:underline"
+                      className="text-primary font-mono text-sm font-medium underline-offset-2 hover:underline"
                     >
                       {e.match.publicCode}
                     </Link>
@@ -223,7 +227,7 @@ export default async function EvidencePage({
             <Link
               key="m"
               href={`/matches/${e.match.publicCode}`}
-              className="font-mono hover:underline"
+              className="text-primary font-mono underline-offset-2 hover:underline"
             >
               {e.match.publicCode}
             </Link>,

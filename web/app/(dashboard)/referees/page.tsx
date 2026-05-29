@@ -80,7 +80,7 @@ export default async function RefereesPage() {
             <Link
               key={m.publicCode}
               href={`/matches/${m.publicCode}`}
-              className="font-mono hover:underline"
+              className="text-primary font-mono underline-offset-2 hover:underline"
             >
               {m.publicCode}
             </Link>,

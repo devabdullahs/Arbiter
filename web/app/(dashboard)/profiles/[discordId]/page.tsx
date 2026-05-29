@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/dashboard-ui";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -207,7 +208,9 @@ export default async function ProfilePage({
                   Priority
                 </FieldLabel>
               </Field>
-              <Button type="submit">{saved ? "Update saved" : "Save worker"}</Button>
+              <PendingSubmitButton pendingChildren="Saving...">
+                {saved ? "Update saved" : "Save worker"}
+              </PendingSubmitButton>
             </form>
           </CardContent>
         </Card>
@@ -231,9 +234,9 @@ export default async function ProfilePage({
                 placeholder="Optional message"
                 className="border-input bg-background w-full rounded-lg border px-2.5 py-2 text-sm"
               />
-              <Button type="submit">
+              <PendingSubmitButton pendingChildren="Sending...">
                 {request?.status === "pending" ? "Request sent" : "Request access"}
-              </Button>
+              </PendingSubmitButton>
             </form>
           </CardContent>
         </Card>

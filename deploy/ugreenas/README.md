@@ -59,6 +59,11 @@ If you can't use a registry, build the images elsewhere, `docker save | gzip`
 them, copy to the NAS, then load and point the compose at them:
 
 ```sh
+docker build \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://arbiter.moonbot.info \
+  --build-arg NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX \
+  -f deploy/ugreenas/web.Dockerfile \
+  -t arbiter-web:local .
 docker load -i arbiter-bot.tar.gz
 docker load -i arbiter-web.tar.gz
 # in .env.docker:

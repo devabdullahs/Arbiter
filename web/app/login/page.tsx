@@ -22,6 +22,7 @@ import {
   friendlyPasskeyError,
 } from "@/lib/auth-errors";
 import { authClient } from "@/lib/auth-client";
+import { safeRelativePath } from "@/lib/safe-redirect";
 
 import { markPasskeyUsed } from "./actions";
 
@@ -65,7 +66,12 @@ function readLastUsedMethod(): string | null {
 
 function LoginCard() {
   const searchParams = useSearchParams();
-  const callbackURL = searchParams.get("callbackURL") || "/dashboard";
+  // Sanitize to a same-site relative path so a crafted ?callbackURL= can't
+  // bounce a signed-in user to an external phishing site.
+  const callbackURL = safeRelativePath(
+    searchParams.get("callbackURL"),
+    "/dashboard",
+  );
   const authNotice = authNoticeFromParams(searchParams);
   const [email, setEmail] = useState("");
   const [lastUsed] = useState<string | null>(() => readLastUsedMethod());
@@ -110,9 +116,7 @@ function LoginCard() {
       if (error) {
         toast.error(error.message ?? "Could not send the sign-in link.");
       } else {
-        toast.success(
-          "Check your email for a sign-in link. (In development it prints to the server console.)",
-        );
+        toast.success("Check your email for a sign-in link.");
       }
     } catch (error) {
       toast.error(errorMessage(error, "Could not send the sign-in link."));

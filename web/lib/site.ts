@@ -5,7 +5,7 @@ export const siteDescription =
 
 export const siteUrl = (
   process.env.NEXT_PUBLIC_SITE_URL ??
-  process.env.BETTER_AUTH_URL ??
+  process.env.SITE_URL ??
   "https://arbiter.moonbot.info"
 ).replace(/\/$/, "");
 

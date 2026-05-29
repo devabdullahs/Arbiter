@@ -15,7 +15,7 @@ export function NativeSelect({
   ...props
 }: NativeSelectProps) {
   const selectClassName = cn(
-    "border-input bg-background w-full rounded-lg border px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
+    "border-input bg-background w-full rounded-lg border px-2.5 text-sm leading-none outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
     multiple ? "py-2" : "h-9 appearance-none pr-9",
     className,
   );
@@ -33,7 +33,10 @@ export function NativeSelect({
       <select className={selectClassName} {...props}>
         {children}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <ChevronDown
+        aria-hidden="true"
+        className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+      />
     </div>
   );
 }

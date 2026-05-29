@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { getAccessContext } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
+import { cn } from "@/lib/utils";
 
 export default async function DashboardHome() {
   const ctx = await getAccessContext();
@@ -50,15 +51,16 @@ export default async function DashboardHome() {
     ]);
 
   const stats = [
-    { label: "Live matches", value: liveMatches, href: "/matches", icon: Swords },
-    { label: "Live BR lobbies", value: liveLobbies, href: "/br", icon: Trophy },
+    { label: "Live matches", value: liveMatches, href: "/matches", icon: Swords, highlight: false },
+    { label: "Live BR lobbies", value: liveLobbies, href: "/br", icon: Trophy, highlight: false },
     {
       label: "Disputes",
       value: disputedMatches,
       href: "/matches",
       icon: ClipboardList,
+      highlight: disputedMatches > 0,
     },
-    { label: "Evidence items", value: evidenceCount, href: "/evidence", icon: Image },
+    { label: "Evidence items", value: evidenceCount, href: "/evidence", icon: Image, highlight: false },
   ];
 
   return (
@@ -71,15 +73,34 @@ export default async function DashboardHome() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
           <Link key={stat.label} href={stat.href}>
-            <Card className="h-full transition-colors hover:bg-muted/50">
+            <Card
+              className={cn(
+                "h-full transition-colors hover:bg-muted/50",
+                stat.highlight && "border-destructive/40",
+              )}
+            >
               <CardContent className="flex items-center justify-between gap-3 p-4">
                 <div>
                   <p className="text-muted-foreground text-sm">{stat.label}</p>
-                  <p className="text-2xl font-semibold tabular-nums">
+                  <p
+                    className={cn(
+                      "text-2xl font-semibold tabular-nums",
+                      stat.highlight && "text-destructive",
+                    )}
+                  >
                     {stat.value}
                   </p>
                 </div>
-                <stat.icon className="text-muted-foreground size-5" />
+                <span
+                  className={cn(
+                    "flex size-9 shrink-0 items-center justify-center rounded-lg",
+                    stat.highlight
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  <stat.icon className="size-5" />
+                </span>
               </CardContent>
             </Card>
           </Link>
@@ -113,17 +134,19 @@ export default async function DashboardHome() {
         <h2 className="text-sm font-medium">Organizations</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {ctx.orgs.map((org) => (
-            <Card key={org.id}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="truncate text-base">{org.name}</CardTitle>
-                  <Badge variant="secondary">{org.role.toLowerCase()}</Badge>
-                </div>
-                <CardDescription className="truncate">
-                  Guild {org.discordGuildId}
-                </CardDescription>
-              </CardHeader>
-            </Card>
+            <Link key={org.id} href="/org">
+              <Card className="h-full transition-colors hover:bg-muted/50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="truncate text-base">{org.name}</CardTitle>
+                    <Badge variant="secondary">{org.role.toLowerCase()}</Badge>
+                  </div>
+                  <CardDescription className="truncate">
+                    Guild {org.discordGuildId}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </Link>
           ))}
         </div>
       </section>

@@ -13,13 +13,13 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#00bcd4",
     icons: [
       {
-        src: "/arbiter-icon.png",
-        sizes: "1254x1254",
+        src: "/arbiter-icon-256.png",
+        sizes: "256x256",
         type: "image/png",
       },
       {
         src: "/icon.png",
-        sizes: "1254x1254",
+        sizes: "256x256",
         type: "image/png",
       },
     ],

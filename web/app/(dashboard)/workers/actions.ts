@@ -8,6 +8,8 @@ import { OWNER_ADMIN_ROLES, requireOrgRole } from "@/lib/web-authz";
 
 const MANAGEABLE_ROLES = new Set<OrgMemberRole>([
   OrgMemberRole.ADMIN,
+  OrgMemberRole.MANAGER,
+  OrgMemberRole.HEAD_REF,
   OrgMemberRole.REFEREE,
   OrgMemberRole.PLAYER,
 ]);

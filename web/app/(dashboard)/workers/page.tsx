@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Search, ShieldAlert } from "lucide-react";
 
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
-import { NoOrgAccess, PageHeader } from "@/components/dashboard-ui";
+import { EmptyState, NoOrgAccess, PageHeader } from "@/components/dashboard-ui";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { getAccessContext } from "@/lib/auth-session";
 import { OrgMemberRole } from "@/lib/generated/prisma";
@@ -23,8 +26,10 @@ function roleRank(role: OrgMemberRole) {
   return {
     [OrgMemberRole.OWNER]: 0,
     [OrgMemberRole.ADMIN]: 1,
-    [OrgMemberRole.REFEREE]: 2,
-    [OrgMemberRole.PLAYER]: 3,
+    [OrgMemberRole.MANAGER]: 2,
+    [OrgMemberRole.HEAD_REF]: 3,
+    [OrgMemberRole.REFEREE]: 4,
+    [OrgMemberRole.PLAYER]: 5,
   }[role];
 }
 
@@ -58,7 +63,8 @@ export default async function WorkersPage({
     typeof params.country === "string" ? params.country.toUpperCase() : "";
   const canDiscover =
     ctx.activeOrg.role === OrgMemberRole.OWNER ||
-    ctx.activeOrg.role === OrgMemberRole.ADMIN;
+    ctx.activeOrg.role === OrgMemberRole.ADMIN ||
+    ctx.activeOrg.role === OrgMemberRole.MANAGER;
   const canManageMembers = canDiscover;
   const canPromoteOwner = ctx.activeOrg.role === OrgMemberRole.OWNER;
 
@@ -185,16 +191,18 @@ export default async function WorkersPage({
                           <option value={OrgMemberRole.OWNER}>Owner</option>
                         ) : null}
                         <option value={OrgMemberRole.ADMIN}>Admin</option>
+                        <option value={OrgMemberRole.MANAGER}>Manager</option>
+                        <option value={OrgMemberRole.HEAD_REF}>Head referee</option>
                         <option value={OrgMemberRole.REFEREE}>Referee</option>
                         <option value={OrgMemberRole.PLAYER}>Player</option>
                       </NativeSelect>
-                      <Button
-                        type="submit"
+                      <PendingSubmitButton
                         variant="outline"
                         disabled={member.userProfileId === viewer?.id}
+                        pendingChildren="Changing..."
                       >
                         Change role
-                      </Button>
+                      </PendingSubmitButton>
                     </form>
                     <form action={removeOrgMember}>
                       <input type="hidden" name="memberId" value={member.id} />
@@ -263,11 +271,11 @@ export default async function WorkersPage({
         </div>
 
         {!canDiscover ? (
-          <Card>
-            <CardContent className="text-muted-foreground py-8 text-center text-sm">
-              Discovery is available to organization owners and admins.
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={ShieldAlert}
+            title="Discovery is restricted"
+            description="Worker discovery is available to organization owners and admins."
+          />
         ) : (
           <>
             <Card>
@@ -295,25 +303,29 @@ export default async function WorkersPage({
                       </option>
                     ))}
                   </NativeSelect>
-                  <input
+                  <Input
                     name="country"
                     defaultValue={country}
                     placeholder="Country code"
                     maxLength={2}
-                    className="border-input bg-background h-9 rounded-lg border px-2.5 text-sm"
+                    className="h-9 uppercase"
                   />
-                  <Button type="submit">Filter</Button>
+                  <PendingSubmitButton pendingChildren="Filtering...">
+                    Filter
+                  </PendingSubmitButton>
                 </form>
               </CardContent>
             </Card>
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {discoveredWorkers.length === 0 ? (
-                <Card>
-                  <CardContent className="text-muted-foreground py-8 text-center text-sm">
-                    No matching external workers found.
-                  </CardContent>
-                </Card>
+                <div className="md:col-span-2 xl:col-span-3">
+                  <EmptyState
+                    icon={Search}
+                    title="No workers found"
+                    description="No public or open-to-work profiles match these filters."
+                  />
+                </div>
               ) : (
                 discoveredWorkers.map((worker) => (
                   <Card key={worker.id}>

@@ -1,20 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
+import { Analytics } from "@/components/analytics";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { siteDescription, siteKeywords, siteName, siteUrl } from "@/lib/site";
-
-const geistSans = Geist({
-  variable: "--font-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -35,10 +26,10 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon.png", type: "image/png", sizes: "1254x1254" },
+      { url: "/icon.png", type: "image/png", sizes: "256x256" },
     ],
     shortcut: "/favicon.ico",
-    apple: [{ url: "/arbiter-icon.png", sizes: "1254x1254", type: "image/png" }],
+    apple: [{ url: "/arbiter-icon-256.png", sizes: "256x256", type: "image/png" }],
   },
   openGraph: {
     type: "website",
@@ -74,21 +65,26 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // The CSP nonce set by proxy.ts. Reading it opts the tree into dynamic
+  // rendering, which a nonce-based CSP requires (static HTML can't be nonced).
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <body className="min-h-full">
         <ThemeProvider defaultTheme="system">
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster />
+          <Analytics nonce={nonce} />
         </ThemeProvider>
       </body>
     </html>

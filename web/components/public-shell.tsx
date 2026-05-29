@@ -5,11 +5,17 @@ import { siteName } from "@/lib/site";
 
 export function PublicHeader() {
   return (
-    <header className="border-b">
+    <header className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-20 border-b backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
         <Link href="/" className="flex items-center gap-3 font-semibold">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/arbiter-icon.png" alt="" className="size-8 rounded-md" />
+          <img
+            src="/arbiter-icon-64.webp"
+            alt="Arbiter logo"
+            width={32}
+            height={32}
+            className="size-8 rounded-md"
+          />
           <span>{siteName}</span>
         </Link>
         <nav className="flex items-center gap-3 text-sm text-muted-foreground">

@@ -13,6 +13,28 @@ async function requireUserId() {
   return session.user.id;
 }
 
+export async function revokeSession(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("You must be signed in.");
+  const id = String(formData.get("id") ?? "");
+  if (!id) throw new Error("Session is required.");
+  // The current session is revoked by signing out, not from this list.
+  if (id === session.session.id) {
+    throw new Error("Use sign out to end your current session.");
+  }
+  await prisma.session.deleteMany({ where: { id, userId: session.user.id } });
+  revalidatePath("/security");
+}
+
+export async function revokeOtherSessions() {
+  const session = await getSession();
+  if (!session) throw new Error("You must be signed in.");
+  await prisma.session.deleteMany({
+    where: { userId: session.user.id, id: { not: session.session.id } },
+  });
+  revalidatePath("/security");
+}
+
 export async function renamePasskey(formData: FormData) {
   const userId = await requireUserId();
   const id = String(formData.get("id") ?? "");

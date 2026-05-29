@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useFormStatus } from "react-dom";
 import {
   AtSign,
   BriefcaseBusiness,
@@ -11,7 +10,15 @@ import {
   Save,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 
@@ -40,12 +47,11 @@ function socialValue(socialLinks: unknown, key: string) {
 }
 
 function SubmitButton() {
-  const { pending } = useFormStatus();
   return (
-    <Button type="submit" className="w-full sm:w-auto" disabled={pending}>
-      <Save />
-      {pending ? "Saving" : "Save settings"}
-    </Button>
+    <PendingSubmitButton className="w-full sm:w-auto" pendingChildren="Saving...">
+      <Save data-icon="inline-start" />
+      Save settings
+    </PendingSubmitButton>
   );
 }
 
@@ -59,13 +65,11 @@ function CheckboxPill({
   checked: boolean;
 }) {
   return (
-    <label className="has-checked:border-primary has-checked:bg-primary/10 flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm">
-      <input
-        type="checkbox"
+    <label className="has-data-checked:border-primary/40 has-data-checked:bg-primary/5 flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors">
+      <Checkbox
         name={name}
         value={value}
         defaultChecked={checked}
-        className="size-4"
       />
       <span>{value}</span>
     </label>
@@ -88,7 +92,7 @@ function SocialInput({
   placeholder: string;
 }) {
   return (
-    <label className="space-y-2">
+    <label className="flex flex-col gap-2">
       <span className="flex items-center gap-2 text-sm font-medium">
         <Icon className="size-4" />
         {label}
@@ -128,7 +132,7 @@ export function ProfileSettingsForm({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={profile.avatarUrl}
-              alt=""
+              alt={profile.displayName ? `${profile.displayName} avatar` : "Profile avatar"}
               className="h-full w-full object-cover"
             />
           ) : (
@@ -137,7 +141,7 @@ export function ProfileSettingsForm({
             </span>
           )}
         </div>
-        <label className="space-y-2">
+        <label className="flex flex-col gap-2">
           <span className="text-sm font-medium">Profile picture</span>
           <input
             name="avatar"
@@ -152,7 +156,7 @@ export function ProfileSettingsForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-2">
+        <label className="flex flex-col gap-2">
           <span className="text-sm font-medium">Display name</span>
           <Input
             name="displayName"
@@ -162,7 +166,7 @@ export function ProfileSettingsForm({
             autoComplete="name"
           />
         </label>
-        <label className="space-y-2">
+        <label className="flex flex-col gap-2">
           <span className="text-sm font-medium">Country</span>
           <NativeSelect
             name="countryCode"
@@ -178,7 +182,7 @@ export function ProfileSettingsForm({
         </label>
       </div>
 
-      <label className="space-y-2">
+      <label className="flex flex-col gap-2">
         <span className="text-sm font-medium">Bio</span>
         <textarea
           name="bio"
@@ -195,7 +199,7 @@ export function ProfileSettingsForm({
         </span>
       </label>
 
-      <section className="space-y-3">
+      <section className="flex flex-col gap-3">
         <div>
           <h2 className="text-sm font-medium">Contact and social links</h2>
           <p className="text-muted-foreground text-sm">
@@ -203,7 +207,7 @@ export function ProfileSettingsForm({
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="space-y-2 sm:col-span-2">
+          <label className="flex flex-col gap-2 sm:col-span-2">
             <span className="flex items-center gap-2 text-sm font-medium">
               <Mail className="size-4" />
               Public email
@@ -216,34 +220,31 @@ export function ProfileSettingsForm({
               placeholder="name@example.com"
             />
           </label>
-          <label className="flex min-h-20 items-center gap-3 rounded-lg border p-3">
-            <input
-              type="checkbox"
-              name="showContactEmail"
-              defaultChecked={profile.showContactEmail}
-              className="size-4"
-            />
-            <span>
-              <span className="block text-sm font-medium">Show email</span>
-              <span className="text-muted-foreground block text-sm">
-                Display this email on visible profile pages.
-              </span>
-            </span>
-          </label>
-          <label className="flex min-h-20 items-center gap-3 rounded-lg border p-3">
-            <input
-              type="checkbox"
-              name="openToWork"
-              defaultChecked={profile.openToWork}
-              className="size-4"
-            />
-            <span>
-              <span className="block text-sm font-medium">Open to work</span>
-              <span className="text-muted-foreground block text-sm">
-                Let organization owners find you in worker discovery.
-              </span>
-            </span>
-          </label>
+          <FieldLabel className="cursor-pointer">
+            <Field orientation="horizontal" className="min-h-20 rounded-lg border p-3">
+              <Checkbox
+                name="showContactEmail"
+                defaultChecked={profile.showContactEmail}
+              />
+              <FieldContent>
+                <FieldTitle>Show email</FieldTitle>
+                <FieldDescription>
+                  Display this email on visible profile pages.
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          </FieldLabel>
+          <FieldLabel className="cursor-pointer">
+            <Field orientation="horizontal" className="min-h-20 rounded-lg border p-3">
+              <Checkbox name="openToWork" defaultChecked={profile.openToWork} />
+              <FieldContent>
+                <FieldTitle>Open to work</FieldTitle>
+                <FieldDescription>
+                  Let organization owners find you in worker discovery.
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          </FieldLabel>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <SocialInput
@@ -282,7 +283,7 @@ export function ProfileSettingsForm({
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-2">
+        <label className="flex flex-col gap-2">
           <span className="text-sm font-medium">Profile visibility</span>
           <NativeSelect
             name="profileVisibility"
@@ -296,7 +297,7 @@ export function ProfileSettingsForm({
         </label>
       </div>
 
-      <section className="space-y-3">
+      <section className="flex flex-col gap-3">
         <div>
           <h2 className="text-sm font-medium">Games you can work</h2>
           <p className="text-muted-foreground text-sm">
@@ -315,7 +316,7 @@ export function ProfileSettingsForm({
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="flex flex-col gap-3">
         <div>
           <h2 className="text-sm font-medium">Field role</h2>
           <p className="text-muted-foreground text-sm">

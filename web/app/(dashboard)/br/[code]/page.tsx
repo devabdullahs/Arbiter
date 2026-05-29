@@ -169,7 +169,7 @@ export default async function BrLobbyDetailPage({
       </Card>
 
       <Tabs defaultValue="results">
-        <TabsList className="flex-wrap">
+        <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="results">
             Results ({lobby.results.length})
           </TabsTrigger>

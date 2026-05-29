@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { ChevronRight, Home, MoreHorizontal } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -16,6 +17,7 @@ const LABELS: Record<string, string> = {
   referees: "Referees",
   security: "Login & Security",
   settings: "Profile",
+  tournaments: "Tournaments",
   workers: "Workers",
 };
 
@@ -23,6 +25,29 @@ type Crumb = {
   href: string;
   label: string;
 };
+
+const PROFILE_PARENT_KEY = "arbiter.profileBreadcrumbParent";
+
+const PROFILE_PARENTS: Record<string, Crumb> = {
+  player: { href: "/player", label: "Player" },
+  settings: { href: "/settings", label: "Profile" },
+  workers: { href: "/workers", label: "Workers" },
+};
+
+function normalizeProfileParent(value: string | null | undefined) {
+  if (!value) return null;
+  const normalized = value.toLowerCase();
+  if (normalized === "profile") return "settings";
+  if (normalized === "players") return "player";
+  return PROFILE_PARENTS[normalized] ? normalized : null;
+}
+
+function profileParentFromPath(pathname: string) {
+  if (pathname === "/player" || pathname.startsWith("/player/")) return "player";
+  if (pathname === "/settings" || pathname.startsWith("/settings/")) return "settings";
+  if (pathname === "/workers" || pathname.startsWith("/workers/")) return "workers";
+  return null;
+}
 
 function segmentLabel(segment: string) {
   const decoded = decodeURIComponent(segment);
@@ -43,13 +68,7 @@ function crumbsForPath(pathname: string, from: string | null): Crumb[] {
   if (segments[0] === "profiles" && segments.length >= 2) {
     // Mirror the profile page's "Back to ..." target based on where the viewer
     // came from: their own settings preview, the player list, or the workers list.
-    const origin =
-      from === "settings"
-        ? { href: "/settings", label: "Profile" }
-        : from === "player"
-          ? { href: "/player", label: "Player" }
-          : { href: "/workers", label: "Workers" };
-    crumbs.push(origin);
+    crumbs.push(PROFILE_PARENTS[from ?? ""] ?? PROFILE_PARENTS.workers);
     crumbs.push({
       href: `/profiles/${segments[1]}`,
       label: segmentLabel(segments[1]),
@@ -68,8 +87,21 @@ function crumbsForPath(pathname: string, from: string | null): Crumb[] {
 
 export function DashboardBreadcrumbs() {
   const pathname = usePathname();
-  const from = useSearchParams().get("from");
-  const crumbs = crumbsForPath(pathname, from);
+  const searchParams = useSearchParams();
+  const routeProfileParent = normalizeProfileParent(searchParams.get("from"));
+  const storedProfileParent =
+    typeof window === "undefined"
+      ? null
+      : normalizeProfileParent(window.sessionStorage.getItem(PROFILE_PARENT_KEY));
+
+  useEffect(() => {
+    const parentFromPath = profileParentFromPath(pathname);
+    if (parentFromPath) {
+      window.sessionStorage.setItem(PROFILE_PARENT_KEY, parentFromPath);
+    }
+  }, [pathname]);
+
+  const crumbs = crumbsForPath(pathname, routeProfileParent ?? storedProfileParent);
   const compact = crumbs.length > 4;
   const visibleCrumbs = compact
     ? [crumbs[0], crumbs[crumbs.length - 2], crumbs[crumbs.length - 1]]

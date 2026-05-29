@@ -2,6 +2,8 @@
 
 import type { ComponentPropsWithoutRef } from "react";
 import { useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
+import { LoaderCircle } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
 import { Button } from "@/components/ui/button";
@@ -23,18 +25,28 @@ export function ConfirmSubmitButton({
   ...props
 }: Props) {
   const [open, setOpen] = useState(false);
+  const { pending } = useFormStatus();
   const submitRef = useRef<HTMLButtonElement>(null);
+  const isDisabled = disabled || pending;
 
   return (
     <>
       <Button
         {...props}
         type="button"
-        disabled={disabled}
+        disabled={isDisabled}
         className={className}
+        aria-busy={pending}
         onClick={() => setOpen(true)}
       >
-        {children}
+        {pending ? (
+          <>
+            <LoaderCircle data-icon="inline-start" className="animate-spin" />
+            Working...
+          </>
+        ) : (
+          children
+        )}
       </Button>
       <button
         ref={submitRef}
@@ -42,7 +54,7 @@ export function ConfirmSubmitButton({
         className="hidden"
         tabIndex={-1}
         aria-hidden="true"
-        disabled={disabled}
+        disabled={isDisabled}
       />
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
         <DialogPrimitive.Portal>
@@ -68,12 +80,21 @@ export function ConfirmSubmitButton({
               <Button
                 type="button"
                 variant={props.variant === "destructive" ? "destructive" : "default"}
+                disabled={isDisabled}
+                aria-busy={pending}
                 onClick={() => {
                   setOpen(false);
                   submitRef.current?.form?.requestSubmit(submitRef.current);
                 }}
               >
-                {confirmActionLabel}
+                {pending ? (
+                  <>
+                    <LoaderCircle data-icon="inline-start" className="animate-spin" />
+                    Working...
+                  </>
+                ) : (
+                  confirmActionLabel
+                )}
               </Button>
             </div>
           </DialogPrimitive.Content>

@@ -3,7 +3,13 @@ import Link from "next/link";
 import { NoOrgAccess, PageHeader, StatusBadge } from "@/components/dashboard-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -66,12 +72,14 @@ export default async function BrLobbiesPage() {
         description={`${lobbies.length} most recent across your organizations.`}
       />
       <Card>
-        <CardContent className="space-y-3 py-4">
-          <h2 className="text-sm font-medium">Create BR lobby</h2>
-          <p className="text-muted-foreground text-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Create BR lobby</CardTitle>
+          <CardDescription>
             Select registered teams to link the lobby to rosters, then add any
             extra invite teams below.
-          </p>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
           <CreateBrLobbyForm
             orgs={ctx.staffOrgs.map((org) => ({ id: org.id, name: org.name }))}
             teams={teams}

@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState, useActionState } from "react";
-import { useFormStatus } from "react-dom";
 
-import { Button } from "@/components/ui/button";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
@@ -17,6 +16,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import { BUILT_IN_PRESETS } from "@/lib/game-presets";
 
 import { createWebMatchWithState } from "./actions";
 
@@ -31,22 +31,23 @@ type TeamOption = {
   organization: OrgOption;
 };
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full sm:w-auto" disabled={pending}>
-      {pending ? "Creating" : "Create"}
-    </Button>
-  );
-}
+type RulesPresetOption = {
+  id: string;
+  key: string;
+  label: string;
+  gameTitle: string | null;
+  organization: OrgOption;
+};
 
 export function CreateMatchForm({
   orgs,
   teams,
+  rulesPresets,
   defaultOrganizationId,
 }: {
   orgs: OrgOption[];
   teams: TeamOption[];
+  rulesPresets: RulesPresetOption[];
   defaultOrganizationId?: string;
 }) {
   const [state, formAction] = useActionState(createWebMatchWithState, {});
@@ -125,12 +126,23 @@ export function CreateMatchForm({
               name="rulesPreset"
               defaultValue="generic"
             >
-              <option value="generic">Generic</option>
-              <option value="valorant">Valorant</option>
-              <option value="overwatch">Overwatch</option>
-              <option value="r6s">Rainbow Six Siege</option>
-              <option value="cod">Call of Duty</option>
-              <option value="rocket_league">Rocket League</option>
+              <optgroup label="Built-in presets">
+                {BUILT_IN_PRESETS.map((preset) => (
+                  <option key={preset.key} value={preset.key}>
+                    {preset.label}
+                  </option>
+                ))}
+              </optgroup>
+              {rulesPresets.length ? (
+                <optgroup label="Organization presets">
+                  {rulesPresets.map((preset) => (
+                    <option key={preset.id} value={`org:${preset.id}`}>
+                      {preset.organization.name} / {preset.label}
+                      {preset.gameTitle ? ` (${preset.gameTitle})` : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </NativeSelect>
           </Field>
           <Field className="xl:col-span-1">
@@ -143,6 +155,42 @@ export function CreateMatchForm({
               <option value="series_picks">Series picks</option>
               <option value="final_map_ban">Final map ban</option>
               <option value="manual_picks">Manual picks</option>
+            </NativeSelect>
+          </Field>
+          <Field className="xl:col-span-1">
+            <FieldLabel htmlFor="match-veto-start">First veto turn</FieldLabel>
+            <NativeSelect
+              id="match-veto-start"
+              name="vetoStartingTeam"
+              defaultValue="teamA"
+            >
+              <option value="teamA">Team A starts</option>
+              <option value="teamB">Team B starts</option>
+            </NativeSelect>
+          </Field>
+          <Field className="xl:col-span-1">
+            <FieldLabel htmlFor="match-veto-timer">Veto timer</FieldLabel>
+            <Input
+              id="match-veto-timer"
+              name="vetoTimerSeconds"
+              type="number"
+              min={10}
+              max={600}
+              defaultValue={60}
+              className="h-9"
+            />
+            <FieldDescription>Seconds per map pick or ban.</FieldDescription>
+          </Field>
+          <Field className="xl:col-span-2">
+            <FieldLabel htmlFor="match-timeout-action">If a team misses</FieldLabel>
+            <NativeSelect
+              id="match-timeout-action"
+              name="vetoTimeoutAction"
+              defaultValue="referee_choice"
+            >
+              <option value="referee_choice">Referee chooses</option>
+              <option value="extra_turn">Give another turn</option>
+              <option value="skip">Skip the turn</option>
             </NativeSelect>
           </Field>
         </div>
@@ -250,19 +298,73 @@ export function CreateMatchForm({
           </FieldDescription>
         </div>
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <Field>
-            <FieldLabel htmlFor="match-map-pool">Custom map pool</FieldLabel>
-            <textarea
-              id="match-map-pool"
-              name="mapPool"
-              placeholder="Optional custom map pool, comma-separated or one per line"
-              maxLength={2000}
-              className="border-input bg-background min-h-24 rounded-lg border px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-            <FieldDescription>
-              Leave empty to use the selected rules preset map pool.
-            </FieldDescription>
-          </Field>
+          <div className="grid gap-4">
+            <Field>
+              <FieldLabel htmlFor="match-map-pool">Custom map pool</FieldLabel>
+              <textarea
+                id="match-map-pool"
+                name="mapPool"
+                placeholder="Optional custom map pool, comma-separated or one per line"
+                maxLength={2000}
+                className="border-input bg-background min-h-24 rounded-lg border px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              />
+              <FieldDescription>
+                Leave empty to use the selected rules preset map pool.
+              </FieldDescription>
+            </Field>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="match-character-ban-mode">
+                  Character ban system
+                </FieldLabel>
+                <NativeSelect
+                  id="match-character-ban-mode"
+                  name="characterBanMode"
+                  defaultValue="none"
+                >
+                  <option value="none">No character bans</option>
+                  <option value="generic">Generic bans</option>
+                  <option value="valorant_protect_ban">Valorant protect + ban</option>
+                  <option value="lol_fearless_draft">LoL Fearless locks</option>
+                  <option value="owcs_ranked_vote">OWCS ranked hero vote</option>
+                  <option value="valorant_agents">Valorant agent bans</option>
+                  <option value="lol_champions">LoL champion bans</option>
+                  <option value="overwatch_heroes">Overwatch hero bans</option>
+                </NativeSelect>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="match-character-ban-timer">
+                  Character ban timer
+                </FieldLabel>
+                <Input
+                  id="match-character-ban-timer"
+                  name="characterBanTimerSeconds"
+                  type="number"
+                  min={5}
+                  max={300}
+                  defaultValue={30}
+                  className="h-9"
+                />
+                <FieldDescription>Seconds per hero, agent, or champion ban.</FieldDescription>
+              </Field>
+            </div>
+            <Field>
+              <FieldLabel htmlFor="match-character-pool">
+                Custom character pool
+              </FieldLabel>
+              <textarea
+                id="match-character-pool"
+                name="characterPool"
+                placeholder="Optional custom character pool, comma-separated or one per line"
+                maxLength={4000}
+                className="border-input bg-background min-h-20 rounded-lg border px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              />
+              <FieldDescription>
+                Leave empty to use a built-in pool when one exists for the selected
+                game.
+              </FieldDescription>
+            </Field>
+          </div>
           <Field>
             <FieldLabel htmlFor="match-player-reports">
               Player reporting
@@ -287,7 +389,12 @@ export function CreateMatchForm({
       </FieldSet>
 
       <div className="flex justify-end border-t pt-4">
-        <SubmitButton />
+        <PendingSubmitButton
+          className="w-full sm:w-auto"
+          pendingChildren="Creating match..."
+        >
+          Create match
+        </PendingSubmitButton>
       </div>
     </form>
   );

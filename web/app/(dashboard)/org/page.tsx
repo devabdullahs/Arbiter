@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { NoOrgAccess, PageHeader } from "@/components/dashboard-ui";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,21 +23,23 @@ import {
 import { NativeSelect } from "@/components/ui/native-select";
 import { getAccessContext } from "@/lib/auth-session";
 import { botInviteUrl, listDiscordGuildOptions } from "@/lib/discord";
+import { formatDate } from "@/lib/format-date";
 import { OrgMemberRole } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/prisma";
 
 import {
   createOrgInvite,
   revokeOrgInvite,
-  updateOrgWebPermissions,
 } from "./actions";
 import { CreateOrganizationCard } from "./create-organization-card";
 
 const ROLE_ORDER: Record<string, number> = {
   OWNER: 0,
   ADMIN: 1,
-  REFEREE: 2,
-  PLAYER: 3,
+  MANAGER: 2,
+  HEAD_REF: 3,
+  REFEREE: 4,
+  PLAYER: 5,
 };
 
 export default async function OrgPage() {
@@ -135,7 +138,9 @@ export default async function OrgPage() {
         const currentRole = roleByOrg.get(org.id);
         const canManageInvites =
           currentRole === OrgMemberRole.OWNER ||
-          currentRole === OrgMemberRole.ADMIN;
+          currentRole === OrgMemberRole.ADMIN ||
+          currentRole === OrgMemberRole.MANAGER ||
+          currentRole === OrgMemberRole.HEAD_REF;
         const members = [...org.members]
           .sort(
             (a, b) =>
@@ -145,8 +150,6 @@ export default async function OrgPage() {
               ),
           )
           .slice(0, 50);
-        const webPermissions = (s?.webPermissions ?? {}) as Record<string, boolean>;
-
         return (
           <Card key={org.id}>
             <CardHeader>
@@ -157,8 +160,8 @@ export default async function OrgPage() {
                 </Badge>
               </div>
               <CardDescription>
-                Guild {org.discordGuildId} - {org._count.members} members -{" "}
-                {org._count.matches} matches - {org._count.brLobbies} BR lobbies
+                Guild {org.discordGuildId} · {org._count.members} members ·{" "}
+                {org._count.matches} matches · {org._count.brLobbies} BR lobbies
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -254,8 +257,8 @@ export default async function OrgPage() {
                                   {invite.role.toLowerCase()}
                                 </Badge>
                               </TableCell>
-                              <TableCell>
-                                {invite.expiresAt.toLocaleDateString()}
+                              <TableCell className="whitespace-nowrap">
+                                {formatDate(invite.expiresAt)}
                               </TableCell>
                               <TableCell className="text-right">
                                 <form action={revokeOrgInvite}>
@@ -314,44 +317,19 @@ export default async function OrgPage() {
                         wrapperClassName="mt-1"
                       >
                         <option value={OrgMemberRole.REFEREE}>Referee</option>
+                        <option value={OrgMemberRole.HEAD_REF}>Head referee</option>
+                        <option value={OrgMemberRole.MANAGER}>Manager</option>
                         <option value={OrgMemberRole.ADMIN}>Admin</option>
                         <option value={OrgMemberRole.PLAYER}>Player</option>
                       </NativeSelect>
                     </div>
-                    <Button type="submit">Send invite</Button>
+                    <PendingSubmitButton pendingChildren="Sending invite...">
+                      Send invite
+                    </PendingSubmitButton>
                   </form>
                 </div>
               ) : null}
 
-              {canManageInvites ? (
-                <form action={updateOrgWebPermissions} className="space-y-3 border-t pt-4">
-                  <input type="hidden" name="organizationId" value={org.id} />
-                  <div>
-                    <h3 className="text-sm font-medium">Web permissions</h3>
-                    <p className="text-muted-foreground text-xs">
-                      Control what non-admin roles can see in the dashboard.
-                    </p>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {[
-                      ["playersCanViewMatches", "Players can view matches"],
-                      ["playersCanViewTeams", "Players can view teams"],
-                      ["playersCanViewEvidence", "Players can view evidence"],
-                      ["refereesCanViewWorkers", "Referees can view worker discovery"],
-                    ].map(([name, label]) => (
-                      <label key={name} className="flex items-center gap-2 rounded-lg border p-3 text-sm">
-                        <input
-                          type="checkbox"
-                          name={name}
-                          defaultChecked={Boolean(webPermissions[name])}
-                        />
-                        <span>{label}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <Button type="submit">Save permissions</Button>
-                </form>
-              ) : null}
             </CardContent>
           </Card>
         );

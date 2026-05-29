@@ -20,9 +20,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useActionState, useId, useMemo, useState } from "react";
-import { useFormStatus } from "react-dom";
 import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2 } from "lucide-react";
 
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -85,15 +85,6 @@ let rowIdCounter = 0;
 function makeRowId(prefix: string) {
   rowIdCounter += 1;
   return `${prefix}-${Date.now()}-${rowIdCounter}`;
-}
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full sm:w-auto" disabled={pending}>
-      {pending ? "Creating" : "Create"}
-    </Button>
-  );
 }
 
 function moveItem<T>(items: T[], index: number, direction: -1 | 1) {
@@ -366,7 +357,7 @@ export function CreateBrLobbyForm({
               records and player memberships.
             </FieldDescription>
           </div>
-          <div className="max-h-72 overflow-auto rounded-lg border">
+          <div className="scrollbar-thin max-h-72 overflow-auto rounded-lg border">
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-background">
                 <TableRow>
@@ -620,7 +611,7 @@ export function CreateBrLobbyForm({
             items={placementRuleIds}
             strategy={verticalListSortingStrategy}
           >
-            <ol className="flex max-h-72 flex-col gap-2 overflow-auto pr-1">
+            <ol className="scrollbar-thin flex max-h-72 flex-col gap-2 overflow-auto pr-1">
               {placementRules.map((rule, index) => (
                 <SortableRow key={rule.id} id={rule.id}>
                   <div className="grid grid-cols-[auto_8rem_minmax(0,1fr)_3rem_auto] items-center gap-2 rounded-md py-1">
@@ -705,7 +696,12 @@ export function CreateBrLobbyForm({
         </DndContext>
       </FieldSet>
       <div className="flex justify-end border-t pt-4">
-        <SubmitButton />
+        <PendingSubmitButton
+          className="w-full sm:w-auto"
+          pendingChildren="Creating lobby..."
+        >
+          Create lobby
+        </PendingSubmitButton>
       </div>
     </form>
   );

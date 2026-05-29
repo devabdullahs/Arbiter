@@ -115,6 +115,8 @@ model Passkey {
 enum OrgMemberRole {
   OWNER
   ADMIN
+  MANAGER
+  HEAD_REF
   REFEREE
   PLAYER
 }
@@ -149,8 +151,10 @@ model Organization {
   shifts          RefereeShift[]
   auditLogs       AuditLog[]
   rulesPresets    RulesPreset[]
+  rulingPresets   RulingPreset[]
   brLobbies       BrLobby[]
   invites         OrgInvite[]
+  announcements   Announcement[]
   discordSyncJobs DiscordSyncJob[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
@@ -181,13 +185,34 @@ model RulesPreset {
   organizationId String
   key            String
   label          String
+  gameTitle      String?
   mapPool        Json
+  characterPool  Json?
   vetoMode       String       @default("final_map_ban")
   notes          String?
   createdById    String?
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+}
+
+model RulingPreset {
+  id                  String       @id @default(cuid())
+  organizationId      String
+  key                 String
+  label               String
+  resultLabel         String
+  defaultSubjectScore Int          @default(0)
+  defaultOpponentScore Int         @default(0)
+  appliesTo           String       @default("subject_loses")
+  notes               String?
+  createdById         String?
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
   @@unique([organizationId, key])
   @@index([organizationId])
@@ -356,10 +381,33 @@ model UserProfile {
   warningsIssued          Warning[]                  @relation("WarningIssuer")
   evidence                Evidence[]
   shifts                  RefereeShift[]
+  refereeAssignments      MatchRefereeAssignment[]   @relation("MatchRefereeAssignments")
+  refereeAssignmentsCreated MatchRefereeAssignment[] @relation("MatchRefereeAssignedBy")
+  announcementsCreated    Announcement[]             @relation("AnnouncementAuthor")
   auditLogs               AuditLog[]
   standaloneLogs          StandaloneLog[]
   createdAt               DateTime                   @default(now())
   updatedAt               DateTime                   @updatedAt
+}
+
+model Announcement {
+  id             String       @id @default(cuid())
+  organizationId String
+  title          String
+  body           String
+  targetKind     String       @default("everyone") // everyone | staff | players | org_role | team_role
+  targetValue    String?
+  createdById    String?
+  expiresAt      DateTime?
+  archivedAt     DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy       UserProfile? @relation("AnnouncementAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([targetKind, targetValue])
+  @@index([createdAt])
 }
 
 model WorkerFavorite {
@@ -428,14 +476,77 @@ model LinkedAccount {
 
 model Tournament {
   id             String       @id @default(cuid())
+  publicCode     String       @unique
   organizationId String
   name           String
   gameTitle      String?
+  format         String       @default("single_elimination") // single_elimination | double_elimination | round_robin
+  status         String       @default("draft") // draft | active | complete
+  bestOf         Int          @default(1)
+  thirdPlace     Boolean      @default(false)
+  refereeClaimMode String     @default("open") // open | assigned
+  refereeClaimLimit Int       @default(1)
+  championName   String?
+  startedAt      DateTime?
+  completedAt    DateTime?
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   matches        Match[]
   teams          Team[]
+  entries        TournamentEntry[]
+  bracketNodes   BracketNode[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model TournamentEntry {
+  id           String     @id @default(cuid())
+  tournamentId String
+  teamId       String?
+  teamName     String
+  seed         Int
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team         Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([tournamentId, seed])
+  @@index([tournamentId])
+}
+
+model BracketNode {
+  id             String     @id @default(cuid())
+  tournamentId   String
+  bracket        String     @default("winners") // winners | losers | grand_final | third_place | round_robin
+  roundIndex     Int
+  slotIndex      Int
+  label          String?
+  bestOf         Int        @default(1)
+  teamAEntryId   String?
+  teamBEntryId   String?
+  teamAName      String?
+  teamBName      String?
+  teamASource    String?
+  teamBSource    String?
+  teamAScore     Int        @default(0)
+  teamBScore     Int        @default(0)
+  teamAResult    String?
+  teamBResult    String?
+  winnerSlot     String? // teamA | teamB
+  status         String     @default("pending") // pending | ready | live | complete | bye
+  matchId        String?    @unique
+  winnerToNodeId String?
+  winnerToSlot   String? // teamA | teamB
+  loserToNodeId  String?
+  loserToSlot    String? // teamA | teamB
+  tournament     Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  match          Match?     @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([tournamentId, bracket, roundIndex, slotIndex])
+  @@index([tournamentId])
 }
 
 model Team {
@@ -450,6 +561,7 @@ model Team {
   members          TeamMember[]
   participants     MatchParticipant[]
   brLobbyTeams     BrTeam[]
+  tournamentEntries TournamentEntry[]
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
@@ -462,6 +574,7 @@ model TeamMember {
   teamId        String
   userProfileId String?
   displayName   String
+  teamRole      String       @default("player")
   team          Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
   userProfile   UserProfile? @relation(fields: [userProfileId], references: [id], onDelete: SetNull)
   createdAt     DateTime     @default(now())
@@ -481,12 +594,23 @@ model Match {
   bestOf             Int
   rulesPreset        String              @default("generic")
   vetoMode           String              @default("final_map_ban")
+  vetoStartingTeam   String              @default("teamA")
+  vetoTimerSeconds   Int                 @default(60)
+  vetoTimeoutAction  String              @default("referee_choice")
+  characterBanMode   String              @default("none")
+  characterBanTimerSeconds Int           @default(30)
+  characterBanStartedAt DateTime?
+  characterPool      Json?
   mapPool            Json
   status             MatchStatus         @default(PENDING)
   teamAScore         Int                 @default(0)
   teamBScore         Int                 @default(0)
+  teamAResult        String?
+  teamBResult        String?
   allowPlayerReports Boolean             @default(false)
   assignedRefereeId  String?
+  refereeClaimMode   String              @default("open") // open | assigned | tournament
+  refereeClaimLimit  Int                 @default(1)
   disputeReason      String?
   teamARoleId        String?
   teamBRoleId        String?
@@ -497,14 +621,18 @@ model Match {
   tournament         Tournament?         @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
   participants       MatchParticipant[]
   vetoActions        VetoAction[]
+  characterBanActions CharacterBanAction[]
   checkins           Checkin[]
   pauseLogs          PauseLog[]
   warnings           Warning[]
   evidence           Evidence[]
   scoreReports       ScoreReport[]
+  mapResults         MapResult[]
   rosterSubmissions  RosterSubmission[]
   reminders          ScheduledReminder[]
+  refereeAssignments MatchRefereeAssignment[]
   room               MatchRoom?
+  bracketNode        BracketNode?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -523,16 +651,72 @@ model MatchParticipant {
   @@unique([matchId, slot])
 }
 
+model MatchRefereeAssignment {
+  id             String       @id @default(cuid())
+  matchId        String
+  userProfileId  String
+  source         String       @default("assigned") // assigned | claimed
+  status         String       @default("active")
+  assignedById   String?
+  match          Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userProfile    UserProfile  @relation("MatchRefereeAssignments", fields: [userProfileId], references: [id], onDelete: Cascade)
+  assignedBy     UserProfile? @relation("MatchRefereeAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([matchId, userProfileId])
+  @@index([matchId, status])
+  @@index([userProfileId])
+}
+
 model VetoAction {
   id        String   @id @default(cuid())
   matchId   String
   kind      VetoKind
   teamSlot  String
   mapName   String
+  source    String   @default("team")
+  note      String?
   actorId   String?
   match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
+  @@index([matchId])
+}
+
+model CharacterBanAction {
+  id        String   @id @default(cuid())
+  matchId   String
+  teamSlot  String
+  action    String   @default("ban")
+  character String
+  gameRole  String?
+  source    String   @default("team")
+  note      String?
+  actorId   String?
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([matchId])
+}
+
+model MapResult {
+  id         String   @id @default(cuid())
+  matchId    String
+  mapIndex   Int
+  mapName    String
+  teamAScore Int      @default(0)
+  teamBScore Int      @default(0)
+  teamAResult String?
+  teamBResult String?
+  status     String   @default("pending")
+  note       String?
+  actorId    String?
+  match      Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([matchId, mapIndex])
   @@index([matchId])
 }
 
@@ -619,6 +803,8 @@ model ScoreReport {
   matchId        String
   teamAScore     Int
   teamBScore     Int
+  teamAResult    String?
+  teamBResult    String?
   scoringType    String       @default("match")
   comment        String?
   attachments    Json?

@@ -2,6 +2,7 @@
 
 import { ChevronsUpDown, Plus } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useFormStatus } from "react-dom";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,6 +20,36 @@ import {
 } from "@/components/ui/sidebar";
 import type { AccessibleOrg } from "@/lib/auth-session";
 import { switchActiveOrg } from "@/lib/org-actions";
+
+function SwitchOrgButton({
+  name,
+  discordGuildId,
+  role,
+  active,
+}: {
+  name: string;
+  discordGuildId: string;
+  role: string;
+  active: boolean;
+}) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending || active}
+      className="flex w-full items-center justify-between gap-2 text-left disabled:cursor-wait disabled:opacity-70"
+    >
+      <span className="min-w-0">
+        <span className="block truncate">{pending ? "Switching..." : name}</span>
+        <span className="text-muted-foreground block truncate text-xs">
+          {discordGuildId}
+        </span>
+      </span>
+      <Badge variant={active ? "default" : "outline"}>{role.toLowerCase()}</Badge>
+    </button>
+  );
+}
 
 export function OrgSwitcher({
   orgs,
@@ -64,20 +95,12 @@ export function OrgSwitcher({
                   <form action={switchActiveOrg} className="w-full">
                     <input type="hidden" name="orgId" value={org.id} />
                     <input type="hidden" name="returnTo" value={returnTo} />
-                    <button
-                      type="submit"
-                      className="flex w-full items-center justify-between gap-2 text-left"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate">{org.name}</span>
-                        <span className="text-muted-foreground block truncate text-xs">
-                          {org.discordGuildId}
-                        </span>
-                      </span>
-                      <Badge variant={org.id === activeOrg?.id ? "default" : "outline"}>
-                        {org.role.toLowerCase()}
-                      </Badge>
-                    </button>
+                    <SwitchOrgButton
+                      name={org.name}
+                      discordGuildId={org.discordGuildId}
+                      role={org.role}
+                      active={org.id === activeOrg?.id}
+                    />
                   </form>
                 </DropdownMenuItem>
               ))

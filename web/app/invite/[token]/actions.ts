@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 
 const ACCEPTABLE_ROLES = new Set<OrgMemberRole>([
   OrgMemberRole.ADMIN,
+  OrgMemberRole.MANAGER,
+  OrgMemberRole.HEAD_REF,
   OrgMemberRole.REFEREE,
   OrgMemberRole.PLAYER,
 ]);

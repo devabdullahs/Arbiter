@@ -100,7 +100,10 @@ export function toMatchView(match) {
       submittedById: evidence.submittedById,
       createdAt: evidence.createdAt?.toISOString?.() ?? evidence.createdAt,
     })),
-    score: { teamA: match.teamAScore, teamB: match.teamBScore },
+    score: {
+      teamA: match.teamAResult ?? match.teamAScore,
+      teamB: match.teamBResult ?? match.teamBScore,
+    },
     veto: {
       current: next.current,
       turn: next.turn,

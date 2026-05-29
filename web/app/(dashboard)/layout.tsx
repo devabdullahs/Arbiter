@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getAccessibleOrgs, getSession } from "@/lib/auth-session";
 import { getActiveOrgId } from "@/lib/org-selection";
+import { getTodoSummary } from "@/lib/todos";
 
 export const metadata: Metadata = {
   robots: {
@@ -35,6 +36,11 @@ export default async function DashboardLayout({
   ]);
   const resolvedActiveOrgId =
     orgs.find((org) => org.id === activeOrgId)?.id ?? orgs[0]?.id ?? null;
+  const todoSummary = await getTodoSummary(
+    session.user.id,
+    orgs,
+    resolvedActiveOrgId,
+  );
 
   return (
     <SidebarProvider>
@@ -42,9 +48,11 @@ export default async function DashboardLayout({
         user={session.user}
         orgs={orgs}
         activeOrgId={resolvedActiveOrgId}
+        staffTodoCount={todoSummary.staffTotal}
+        playerNotificationCount={todoSummary.playerTotal}
       />
-      <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+      <SidebarInset className="min-w-0">
+        <header className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mx-1 h-4 self-center" />
           <DashboardBreadcrumbs />
@@ -52,7 +60,7 @@ export default async function DashboardLayout({
             <ModeToggle />
           </div>
         </header>
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-4 md:p-6 lg:p-8">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

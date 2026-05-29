@@ -1,9 +1,16 @@
 import Link from "next/link";
 
 import { NoOrgAccess, PageHeader, StatusBadge } from "@/components/dashboard-ui";
+import { OpenMatchByCode } from "@/components/open-match-by-code";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -13,7 +20,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getAccessContext } from "@/lib/auth-session";
+import { formatDate } from "@/lib/format-date";
 import { prisma } from "@/lib/prisma";
+import { formatScore } from "@/lib/score-format";
 
 import { CreateMatchForm } from "./create-match-form";
 
@@ -30,7 +39,7 @@ export default async function MatchesPage() {
     );
   }
 
-  const [matches, teams] = await Promise.all([
+  const [matches, teams, rulesPresets] = await Promise.all([
     prisma.match.findMany({
       where: { organizationId: { in: ctx.orgIds } },
       orderBy: { createdAt: "desc" },
@@ -44,6 +53,8 @@ export default async function MatchesPage() {
         status: true,
         teamAScore: true,
         teamBScore: true,
+        teamAResult: true,
+        teamBResult: true,
         channelId: true,
         createdAt: true,
         organization: { select: { discordGuildId: true, name: true } },
@@ -58,6 +69,17 @@ export default async function MatchesPage() {
         organization: { select: { id: true, name: true } },
       },
     }),
+    prisma.rulesPreset.findMany({
+      where: { organizationId: { in: ctx.orgIds } },
+      orderBy: [{ organization: { name: "asc" } }, { label: "asc" }],
+      select: {
+        id: true,
+        key: true,
+        label: true,
+        gameTitle: true,
+        organization: { select: { id: true, name: true } },
+      },
+    }),
   ]);
 
   return (
@@ -65,17 +87,21 @@ export default async function MatchesPage() {
       <PageHeader
         title="Matches"
         description={`${matches.length} most recent across your organizations.`}
+        actions={<OpenMatchByCode />}
       />
       <Card>
-        <CardContent className="space-y-3 py-4">
-          <h2 className="text-sm font-medium">Create match</h2>
-          <p className="text-muted-foreground text-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Create match</CardTitle>
+          <CardDescription>
             Select existing teams to link rosters and player check-ins. Use
             custom names only for one-off matches.
-          </p>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
           <CreateMatchForm
             orgs={ctx.staffOrgs.map((org) => ({ id: org.id, name: org.name }))}
             teams={teams}
+            rulesPresets={rulesPresets}
             defaultOrganizationId={ctx.activeStaffOrg?.id ?? ctx.staffOrgs[0]?.id}
           />
         </CardContent>
@@ -95,7 +121,7 @@ export default async function MatchesPage() {
                   <div className="min-w-0">
                     <Link
                       href={`/matches/${m.publicCode}`}
-                      className="font-mono text-sm font-medium hover:underline"
+                      className="text-primary font-mono text-sm font-medium underline-offset-2 hover:underline"
                     >
                       {m.publicCode}
                     </Link>
@@ -110,10 +136,15 @@ export default async function MatchesPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="tabular-nums">
-                    {m.teamAScore}-{m.teamBScore}
+                    {formatScore(
+                      m.teamAScore,
+                      m.teamBScore,
+                      m.teamAResult,
+                      m.teamBResult,
+                    )}
                   </Badge>
                   <span className="text-muted-foreground text-xs">
-                    {m.createdAt.toISOString().slice(0, 10)}
+                    {formatDate(m.createdAt)}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -169,7 +200,7 @@ export default async function MatchesPage() {
                     <TableCell>
                       <Link
                         href={`/matches/${m.publicCode}`}
-                        className="font-mono hover:underline"
+                        className="text-primary font-mono underline-offset-2 hover:underline"
                       >
                         {m.publicCode}
                       </Link>
@@ -179,13 +210,25 @@ export default async function MatchesPage() {
                     </TableCell>
                     <TableCell>Bo{m.bestOf}</TableCell>
                     <TableCell className="tabular-nums">
-                      {m.teamAScore}&ndash;{m.teamBScore}
+                      {formatScore(
+                        m.teamAScore,
+                        m.teamBScore,
+                        m.teamAResult,
+                        m.teamBResult,
+                      )}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={m.status} />
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-right text-sm">
-                      {m.createdAt.toISOString().slice(0, 10)}
+                    <TableCell className="text-right text-sm whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="text-muted-foreground">
+                          {formatDate(m.createdAt)}
+                        </span>
+                        <Button asChild size="sm">
+                          <Link href={`/matches/${m.publicCode}`}>Open</Link>
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
