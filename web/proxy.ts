@@ -13,18 +13,21 @@ function canonicalHost() {
   }
 }
 
-// Strict, nonce-based Content-Security-Policy. script-src uses a per-request
-// nonce + 'strict-dynamic' (host allowlists are ignored for scripts, so the
-// nonce is the trust anchor) — this is the main XSS defense. style-src keeps
-// 'unsafe-inline' because the UI relies on inline style attributes (React
-// style={{}}, Radix, sonner); styles are not a meaningful injection vector.
+// Nonce-based Content-Security-Policy. script-src uses a per-request nonce
+// plus explicit script hosts, so Cloudflare Rocket Loader's same-origin
+// /cdn-cgi/ script can load while inline scripts still need the nonce.
+// style-src keeps 'unsafe-inline' because the UI relies on inline style
+// attributes (React style={{}}, Radix, sonner).
 function buildCsp(nonce: string) {
   const isDev = process.env.NODE_ENV === "development";
   const gaEnabled = Boolean(process.env.NEXT_PUBLIC_GA_ID);
 
   const connectSrc = ["'self'"];
   const imgSrc = ["'self'", "data:", "blob:", "https://cdn.discordapp.com"];
+  const scriptSrc = ["'self'", `'nonce-${nonce}'`, "https://ajax.cloudflare.com"];
+
   if (gaEnabled) {
+    scriptSrc.push("https://www.googletagmanager.com");
     connectSrc.push(
       "https://www.googletagmanager.com",
       "https://www.google-analytics.com",
@@ -34,7 +37,7 @@ function buildCsp(nonce: string) {
 
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    `script-src ${scriptSrc.join(" ")}${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src ${imgSrc.join(" ")}`,
     "font-src 'self'",
@@ -75,8 +78,8 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      // Skip API routes, build assets, static files, and prefetches — they
-      // don't render documents that need the nonce.
+      // Skip API routes, build assets, static files, and prefetches. They do
+      // not render documents that need the nonce.
       source:
         "/((?!api|_next/static|_next/image|favicon.ico|icon.png|og-image.png|uploads).*)",
       missing: [
