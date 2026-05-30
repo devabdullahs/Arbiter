@@ -1,15 +1,16 @@
-// Build-time fix for a @better-auth/passkey (1.6.x) bug.
+// Build-time fixes for two @better-auth/passkey (1.6.x) bugs that break passkeys
+// on iOS Safari (Chrome silently tolerates both):
 //
-// The plugin builds WebAuthn credential descriptors as { id, transports } and
-// omits the spec-required `type: "public-key"`. Chrome tolerates the omission;
-// iOS Safari rejects it with a raw `TypeError`, so passkey REGISTRATION fails on
-// iPhone whenever the account already has a passkey (excludeCredentials is then
-// populated). We inject the missing field into both the excludeCredentials
-// (register) and allowCredentials (authenticate) descriptor maps.
+// 1. Credential descriptors omit the spec-required `type: "public-key"`.
+// 2. `transports` is stored as a comma string and emitted via `.split(",")`.
+//    A key saved with empty transports (e.g. some USB security keys) becomes
+//    `[""]`, and "" is not a valid AuthenticatorTransport — Safari rejects the
+//    whole ceremony with a raw `TypeError`. We filter empties out.
 //
-// Idempotent: once patched, the bare `({ id: ... })` shape no longer exists, so
-// re-running is a no-op. Runs from `build`/`predev` so it applies in local dev
-// and inside the Docker/CI image build.
+// Both edits are idempotent (re-running is a no-op) and target the
+// excludeCredentials (register), allowCredentials (authenticate), and the
+// server-side verification descriptor. Wired via prebuild/predev so the fix
+// applies in local dev and inside the Docker/CI image build.
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -25,21 +26,33 @@ try {
   process.exit(0);
 }
 
-const pattern = /(userPasskeys\.map\(\(passkey\) => \(\{)(\s*)(id: passkey\.credentialID,)/g;
-const matches = source.match(pattern)?.length ?? 0;
+const original = source;
 
-if (matches === 0) {
-  if (/userPasskeys\.map\(\(passkey\) => \(\{\s*type: "public-key",/.test(source)) {
+// Fix 1: inject `type: "public-key"` into the credential descriptor maps.
+const typePattern = /(userPasskeys\.map\(\(passkey\) => \(\{)(\s*)(id: passkey\.credentialID,)/g;
+const typeMatches = source.match(typePattern)?.length ?? 0;
+source = source.replace(typePattern, '$1$2type: "public-key",$2$3');
+
+// Fix 2: drop empty/invalid transports (`"".split(",")` -> `[""]`). The negative
+// lookahead keeps this idempotent (won't re-wrap an already-filtered call).
+const transportsPattern = /passkey\.transports\?\.split\(","\)(?!\.filter)/g;
+const transportsMatches = source.match(transportsPattern)?.length ?? 0;
+source = source.replace(transportsPattern, 'passkey.transports?.split(",").filter(Boolean)');
+
+if (source === original) {
+  const alreadyTyped = /userPasskeys\.map\(\(passkey\) => \(\{\s*type: "public-key",/.test(source);
+  const alreadyFiltered = /passkey\.transports\?\.split\(","\)\.filter\(Boolean\)/.test(source);
+  if (alreadyTyped && alreadyFiltered) {
     console.log("[patch-passkey] already applied.");
   } else {
     console.warn(
-      "[patch-passkey] credential descriptor maps not found — @better-auth/passkey may have changed upstream; verify the passkey type fix is still needed.",
+      "[patch-passkey] nothing matched — @better-auth/passkey may have changed upstream; verify the passkey fixes are still needed.",
     );
   }
   process.exit(0);
 }
 
-writeFileSync(target, source.replace(pattern, '$1$2type: "public-key",$2$3'));
+writeFileSync(target, source);
 console.log(
-  `[patch-passkey] injected type:"public-key" into ${matches} credential descriptor map(s).`,
+  `[patch-passkey] applied: type:"public-key" x${typeMatches}, transports filter x${transportsMatches}.`,
 );
